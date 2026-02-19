@@ -2,8 +2,9 @@
 // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
 
 import { useState, useEffect } from 'react';
-import { getExpenses } from '../services/expenseAPI';
+import { getExpenses, updateExpense, deleteExpense } from '../services/expenseAPI';
 import type { Expense } from '../types';
+import EditExpenseModal from './EditExpenseModal';
 
 interface ExpenseListProps {
   mes: string;
@@ -14,6 +15,7 @@ export default function ExpenseList({ mes, aba }: ExpenseListProps) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   useEffect(() => {
     fetchExpenses();
@@ -36,6 +38,38 @@ export default function ExpenseList({ mes, aba }: ExpenseListProps) {
       setLoading(false);
     }
   };
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+  };
+
+  const handleSaveEdit = async (descricao: string, valor: number) => {
+    if (!editingExpense) return;
+
+    await updateExpense(editingExpense.rowId, {
+      descricao,
+      valor,
+      aba,
+      mes
+    });
+
+    // Refresh list
+    fetchExpenses();
+  };
+
+  const handleDelete = async (rowId: number) => {
+    if (window.confirm('Tem certeza que deseja excluir este gasto?')) {
+      try {
+        await deleteExpense(rowId, aba);
+        fetchExpenses();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Erro ao excluir');
+      }
+    }
+  };
+
+  const total = expenses.reduce((acc, curr) => acc + curr.valor, 0);
+  const totalFormatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
 
   if (loading) {
     return (
@@ -80,28 +114,53 @@ export default function ExpenseList({ mes, aba }: ExpenseListProps) {
   }
 
   return (
-    <div>
+    <div className="flex flex-col h-full">
+      {/* Total Header */}
+      <div className="bg-indigo-50 px-6 py-4 border-b border-indigo-100 flex justify-between items-center">
+        <span className="text-sm font-medium text-indigo-800 uppercase tracking-wider">Total do Mês</span>
+        <span className="text-2xl font-bold text-indigo-900 font-mono">{totalFormatted}</span>
+      </div>
+
       {/* Desktop Table View */}
-      <div className="hidden md:block overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto flex-grow">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">
                 Descrição
               </th>
-              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                 Valor
+              </th>
+              <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
+                Ações
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map((expense, index) => (
-              <tr key={index} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+            {expenses.map((expense) => (
+              <tr key={expense.rowId} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out group">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   {expense.descricao}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-mono">
                   {expense.valorFormatado}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => handleEdit(expense)}
+                      className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(expense.rowId)}
+                      className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -110,25 +169,47 @@ export default function ExpenseList({ mes, aba }: ExpenseListProps) {
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden divide-y divide-gray-200">
-        {expenses.map((expense, index) => (
-          <div key={index} className="px-4 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-            <div className="flex justify-between items-center">
+      <div className="md:hidden divide-y divide-gray-200 flex-grow">
+        {expenses.map((expense) => (
+          <div key={expense.rowId} className="px-4 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors">
+            <div className="flex justify-between items-start mb-2">
               <div className="text-sm font-medium text-gray-900 truncate pr-4">
                 {expense.descricao}
               </div>
-              <div className="text-sm font-semibold text-gray-900 font-mono">
+              <div className="text-sm font-semibold text-gray-900 font-mono whitespace-nowrap">
                 {expense.valorFormatado}
               </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-2">
+              <button
+                onClick={() => handleEdit(expense)}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => handleDelete(expense.rowId)}
+                className="text-xs font-medium text-red-600 hover:text-red-800"
+              >
+                Excluir
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Footer summary or pagination could go here */}
+      {/* Footer summary */}
       <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-xs text-gray-500 text-right">
         Total de {expenses.length} itens listados
       </div>
+
+      {/* Edit Modal */}
+      <EditExpenseModal
+        isOpen={!!editingExpense}
+        onClose={() => setEditingExpense(null)}
+        onSave={handleSaveEdit}
+        expense={editingExpense}
+      />
     </div>
   );
 }

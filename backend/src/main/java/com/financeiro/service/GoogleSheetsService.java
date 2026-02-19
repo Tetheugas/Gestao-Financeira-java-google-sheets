@@ -1,6 +1,7 @@
 package com.financeiro.service;
 
 import com.financeiro.exception.GoogleSheetsAuthException;
+import com.financeiro.model.Expense;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -181,6 +182,8 @@ public class GoogleSheetsService {
                 return "C";
             case "Março":
                 return "D";
+            case "Marco":
+                return "D";
             case "Abril":
                 return "E";
             case "Maio":
@@ -309,7 +312,7 @@ public class GoogleSheetsService {
      * @throws GoogleSheetsAuthException Se houver erro de autenticação
      * @throws IOException Se houver erro ao comunicar com Google Sheets API
      */
-    private void createSheet(String sheetName) throws GoogleSheetsAuthException, IOException {
+    public void createSheet(String sheetName) throws GoogleSheetsAuthException, IOException {
         try {
             Sheets sheetsService = getSheetsService();
 
@@ -397,10 +400,71 @@ public class GoogleSheetsService {
         }
     }
 
+    /**
+     * Obtém uma lista com os nomes de todas as abas (filtros) disponíveis na planilha.
+     *
+     * @return Lista de nomes das abas
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    public List<String> getSheetNames() throws IOException {
+        try {
+            Sheets sheetsService = getSheetsService();
+
+            Spreadsheet spreadsheet = sheetsService.spreadsheets()
+                    .get(spreadsheetId)
+                    .setFields("sheets.properties.title")
+                    .execute();
+
+            List<String> sheetNames = new ArrayList<>();
+            if (spreadsheet.getSheets() != null) {
+                for (Sheet sheet : spreadsheet.getSheets()) {
+                    sheetNames.add(sheet.getProperties().getTitle());
+                }
+            }
+            return sheetNames;
+
+        } catch (IOException e) {
+            logger.error("Erro ao buscar nomes das abas", e);
+            throw e;
+        }
+    }
+
+    /**
+     * Obtém o ID da aba (sheetId) a partir do seu nome.
+     * Necessário para operações de deleção que requerem sheetId em vez de nome.
+     *
+     * @param sheetName Nome da aba
+     * @return ID da aba (Integer) ou null se não encontrada
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    private Integer getSheetId(String sheetName) throws IOException {
+        try {
+            Sheets sheetsService = getSheetsService();
+
+            Spreadsheet spreadsheet = sheetsService.spreadsheets()
+                    .get(spreadsheetId)
+                    .setFields("sheets.properties.title,sheets.properties.sheetId")
+                    .execute();
+
+            if (spreadsheet.getSheets() != null) {
+                for (Sheet sheet : spreadsheet.getSheets()) {
+                    if (sheet.getProperties().getTitle().equals(sheetName)) {
+                        return sheet.getProperties().getSheetId();
+                    }
+                }
+            }
+            return null;
+
+        } catch (IOException e) {
+            logger.error("Erro ao buscar ID da aba {}", sheetName, e);
+            throw e;
+        }
+    }
+
 
     /**
      * Lê os gastos de um mês específico de uma aba da planilha.
-     * Retorna uma lista de Expense contendo descrição (coluna A) e valor (coluna do mês).
+     * Retorna uma lista de Expense contendo descrição (coluna A), valor (coluna do mês) e ID da linha.
      *
      * @param sheetName Nome da aba da planilha (ex: "CartãoNubank")
      * @param month Nome do mês em português (ex: "Janeiro", "Fevereiro")
@@ -409,7 +473,7 @@ public class GoogleSheetsService {
      * @throws GoogleSheetsAuthException Se houver erro de autenticação
      * @throws IllegalArgumentException Se o mês fornecido for inválido
      */
-    public List<com.financeiro.model.Expense> readExpenses(String sheetName, String month) throws IOException {
+    public List<Expense> readExpenses(String sheetName, String month) throws IOException {
         // Converte o mês para letra de coluna
         String columnLetter = getColumnLetterForMonth(month);
 
@@ -438,12 +502,14 @@ public class GoogleSheetsService {
             }
 
             // Cria lista de gastos
-            List<com.financeiro.model.Expense> expenses = new java.util.ArrayList<>();
+            List<Expense> expenses = new ArrayList<>();
 
             // Calcula o índice da coluna do mês (B=1, C=2, etc.)
             int monthColumnIndex = columnLetter.charAt(0) - 'A';
 
-            for (List<Object> row : values) {
+            for (int i = 0; i < values.size(); i++) {
+                List<Object> row = values.get(i);
+
                 // Verifica se a linha tem dados suficientes
                 if (row == null || row.isEmpty()) {
                     continue;
@@ -482,8 +548,11 @@ public class GoogleSheetsService {
 
                     Double valor = Double.parseDouble(cleanValue);
 
+                    // O índice da linha na planilha é i + 2 (porque values começa em Row 2)
+                    int rowId = i + 2;
+
                     // Cria o objeto Expense e adiciona à lista
-                    com.financeiro.model.Expense expense = new com.financeiro.model.Expense(descricao, valor);
+                    Expense expense = new Expense(rowId, descricao, valor);
                     expenses.add(expense);
 
                 } catch (NumberFormatException e) {
@@ -514,7 +583,7 @@ public class GoogleSheetsService {
      * @throws GoogleSheetsAuthException Se houver erro de autenticação
      * @throws IllegalArgumentException Se o mês fornecido for inválido ou expense for nulo
      */
-    public void addExpense(String sheetName, String month, com.financeiro.model.Expense expense) throws IOException {
+    public void addExpense(String sheetName, String month, Expense expense) throws IOException {
         if (expense == null) {
             throw new IllegalArgumentException("Expense não pode ser nulo");
         }
@@ -582,6 +651,105 @@ public class GoogleSheetsService {
 
         } catch (IOException e) {
             logger.error("Erro ao adicionar gasto na aba {} para o mês {}", sheetName, month, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Atualiza um gasto existente na planilha.
+     * Atualiza a descrição na coluna A e o valor na coluna do mês especificado.
+     *
+     * @param sheetName Nome da aba da planilha
+     * @param month Nome do mês
+     * @param rowId ID da linha (número da linha)
+     * @param expense Objeto com os novos dados
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    public void updateExpense(String sheetName, String month, int rowId, Expense expense) throws IOException {
+        if (expense == null) {
+             throw new IllegalArgumentException("Expense não pode ser nulo");
+        }
+        if (rowId < 2) {
+            throw new IllegalArgumentException("ID da linha inválido: " + rowId);
+        }
+
+        String columnLetter = getColumnLetterForMonth(month);
+        Sheets sheetsService = getSheetsService();
+
+        try {
+            // Atualiza a descrição na coluna A
+            String descricaoRange = String.format("%s!A%d", sheetName, rowId);
+            com.google.api.services.sheets.v4.model.ValueRange descricaoValueRange =
+                new com.google.api.services.sheets.v4.model.ValueRange()
+                    .setValues(Collections.singletonList(
+                        Collections.singletonList(expense.getDescricao())
+                    ));
+
+            sheetsService.spreadsheets().values()
+                .update(spreadsheetId, descricaoRange, descricaoValueRange)
+                .setValueInputOption("RAW")
+                .execute();
+
+            // Atualiza o valor na coluna do mês
+            String valorRange = String.format("%s!%s%d", sheetName, columnLetter, rowId);
+            com.google.api.services.sheets.v4.model.ValueRange valorValueRange =
+                new com.google.api.services.sheets.v4.model.ValueRange()
+                    .setValues(Collections.singletonList(
+                        Collections.singletonList(expense.getValor())
+                    ));
+
+            sheetsService.spreadsheets().values()
+                .update(spreadsheetId, valorRange, valorValueRange)
+                .setValueInputOption("RAW")
+                .execute();
+
+            logger.info("Gasto na linha {} atualizado com sucesso", rowId);
+        } catch (IOException e) {
+            logger.error("Erro ao atualizar gasto na linha {}", rowId, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Deleta a linha de um gasto na planilha.
+     *
+     * @param sheetName Nome da aba
+     * @param rowId ID da linha a ser removida
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    public void deleteExpense(String sheetName, int rowId) throws IOException {
+        if (rowId < 2) {
+             throw new IllegalArgumentException("ID da linha inválido: " + rowId);
+        }
+
+        Integer sheetId = getSheetId(sheetName);
+        if (sheetId == null) {
+            throw new IllegalArgumentException("Aba não encontrada: " + sheetName);
+        }
+
+        Sheets sheetsService = getSheetsService();
+
+        try {
+            BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
+            DeleteDimensionRequest deleteRequest = new DeleteDimensionRequest()
+                .setRange(new DimensionRange()
+                    .setSheetId(sheetId)
+                    .setDimension("ROWS")
+                    .setStartIndex(rowId - 1) // 0-based index inclusive
+                    .setEndIndex(rowId)       // 0-based index exclusive (so deletes 1 row)
+                );
+
+            Request request = new Request().setDeleteDimension(deleteRequest);
+            batchUpdateRequest.setRequests(Collections.singletonList(request));
+
+            sheetsService.spreadsheets()
+                .batchUpdate(spreadsheetId, batchUpdateRequest)
+                .execute();
+
+            logger.info("Linha {} removida com sucesso da aba {}", rowId, sheetName);
+
+        } catch (IOException e) {
+            logger.error("Erro ao remover linha {} da aba {}", rowId, sheetName, e);
             throw e;
         }
     }

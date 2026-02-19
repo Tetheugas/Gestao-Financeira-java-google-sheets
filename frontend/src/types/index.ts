@@ -6,8 +6,10 @@
  * Used for displaying expenses in the UI
  */
 export interface Expense {
+  rowId: number;
   descricao: string;
   valorFormatado: string; // Format: "R$ X.XXX,XX"
+  valor: number; // Raw numeric value
 }
 
 /**

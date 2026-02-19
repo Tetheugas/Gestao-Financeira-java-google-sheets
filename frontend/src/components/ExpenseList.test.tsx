@@ -30,8 +30,8 @@ describe('ExpenseList', () => {
 
   it('should display expenses in a table when data is loaded', async () => {
     const mockExpenses: Expense[] = [
-      { descricao: 'Netflix', valorFormatado: 'R$ 45,90' },
-      { descricao: 'Uber', valorFormatado: 'R$ 32,50' },
+      { rowId: 1, descricao: 'Netflix', valorFormatado: 'R$ 45,90', valor: 45.90 },
+      { rowId: 2, descricao: 'Uber', valorFormatado: 'R$ 32,50', valor: 32.50 },
     ];
 
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue(mockExpenses);
@@ -59,7 +59,7 @@ describe('ExpenseList', () => {
 
   it('should display table headers correctly', async () => {
     const mockExpenses: Expense[] = [
-      { descricao: 'Test', valorFormatado: 'R$ 100,00' },
+      { rowId: 1, descricao: 'Test', valorFormatado: 'R$ 100,00', valor: 100.00 },
     ];
 
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue(mockExpenses);
@@ -73,6 +73,7 @@ describe('ExpenseList', () => {
 
     expect(screen.getByText('Descrição')).toBeInTheDocument();
     expect(screen.getByText('Valor')).toBeInTheDocument();
+    expect(screen.getByText('Ações')).toBeInTheDocument();
   });
 
   it('should display "Nenhum gasto encontrado" when expenses list is empty', async () => {
@@ -108,10 +109,10 @@ describe('ExpenseList', () => {
 
   it('should refetch expenses when mes prop changes', async () => {
     const mockExpensesFev: Expense[] = [
-      { descricao: 'Netflix', valorFormatado: 'R$ 45,90' },
+      { rowId: 1, descricao: 'Netflix', valorFormatado: 'R$ 45,90', valor: 45.90 },
     ];
     const mockExpensesMar: Expense[] = [
-      { descricao: 'Spotify', valorFormatado: 'R$ 19,90' },
+      { rowId: 1, descricao: 'Spotify', valorFormatado: 'R$ 19,90', valor: 19.90 },
     ];
 
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue(mockExpensesFev);
@@ -137,10 +138,10 @@ describe('ExpenseList', () => {
 
   it('should refetch expenses when aba prop changes', async () => {
     const mockExpensesNubank: Expense[] = [
-      { descricao: 'Netflix', valorFormatado: 'R$ 45,90' },
+      { rowId: 1, descricao: 'Netflix', valorFormatado: 'R$ 45,90', valor: 45.90 },
     ];
     const mockExpensesInter: Expense[] = [
-      { descricao: 'Amazon', valorFormatado: 'R$ 99,00' },
+      { rowId: 1, descricao: 'Amazon', valorFormatado: 'R$ 99,00', valor: 99.00 },
     ];
 
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue(mockExpensesNubank);
@@ -166,7 +167,7 @@ describe('ExpenseList', () => {
 
   it('should preserve BRL formatting from backend', async () => {
     const mockExpenses: Expense[] = [
-      { descricao: 'Mercado', valorFormatado: 'R$ 1.234,56' },
+      { rowId: 1, descricao: 'Mercado', valorFormatado: 'R$ 1.234,56', valor: 1234.56 },
     ];
 
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue(mockExpenses);
@@ -179,8 +180,13 @@ describe('ExpenseList', () => {
     });
 
     // Verify exact formatting is preserved
-    const valorCells = screen.getAllByText('R$ 1.234,56');
-    expect(valorCells[0].textContent).toBe('R$ 1.234,56');
+    // Note: The total header uses Intl.NumberFormat which produces NBSP,
+    // so we need to target the table cell specifically which uses the mock string
+    const table = screen.getByRole('table');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { within } = require('@testing-library/react');
+    const valorCell = within(table).getByText('R$ 1.234,56');
+    expect(valorCell.textContent).toBe('R$ 1.234,56');
   });
 
   it('should call getExpenses with correct parameters', async () => {

@@ -43,8 +43,8 @@ describe('expenseAPI', () => {
   describe('getExpenses', () => {
     it('should fetch expenses successfully', async () => {
       const mockExpenses: Expense[] = [
-        { descricao: 'Netflix', valorFormatado: 'R$ 45,90' },
-        { descricao: 'Uber', valorFormatado: 'R$ 32,50' },
+        { rowId: 1, descricao: 'Netflix', valorFormatado: 'R$ 45,90', valor: 45.90 },
+        { rowId: 2, descricao: 'Uber', valorFormatado: 'R$ 32,50', valor: 32.50 },
       ];
 
       mockGet.mockResolvedValue({ data: mockExpenses });
