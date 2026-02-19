@@ -1,14 +1,47 @@
 // Main App component for Gestão Financeira Pessoal
 // Requirements: 5.1, 6.1
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ExpenseList from './components/ExpenseList';
 import ExpenseForm from './components/ExpenseForm';
+import { getAuthStatus, getAuthUrl } from './services/expenseAPI';
 
 function App() {
   const [aba, setAba] = useState('CartaoNubank');
   const [mes, setMes] = useState('Fevereiro');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const isAuth = await getAuthStatus();
+    setShowAuthModal(!isAuth);
+  };
+
+  const handleLogin = async () => {
+    try {
+      const url = await getAuthUrl();
+      if (url) {
+        window.open(url, '_blank');
+
+        // Poll for authentication status
+        const pollInterval = setInterval(async () => {
+          const isAuth = await getAuthStatus();
+          if (isAuth) {
+            clearInterval(pollInterval);
+            setShowAuthModal(false);
+            setRefreshKey(prev => prev + 1); // Refresh data
+          }
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Login failed", error);
+      alert("Falha ao iniciar login com Google.");
+    }
+  };
 
   const handleExpenseAdded = () => {
     // Trigger ExpenseList refresh by updating key
@@ -49,6 +82,7 @@ function App() {
                     >
                       <option value="CartaoNubank">Cartão Nubank</option>
                       <option value="CartaoInter">Cartão Inter</option>
+                      <option value="CartaoSantander">Cartão Santander</option>
                       <option value="Dinheiro">Dinheiro</option>
                     </select>
                   </div>
@@ -113,6 +147,31 @@ function App() {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-md mx-auto border border-gray-200">
+            <div className="mb-6">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Conectar Conta Google</h2>
+              <p className="text-gray-600">
+                Para utilizar o sistema, é necessário conectar sua conta Google para acessar as planilhas de gastos.
+              </p>
+            </div>
+            <button
+              onClick={handleLogin}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              Conectar com Google
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

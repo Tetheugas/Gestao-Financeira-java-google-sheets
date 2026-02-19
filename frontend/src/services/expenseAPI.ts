@@ -47,6 +47,26 @@ export const addExpense = async (data: ExpenseRequest): Promise<MessageResponse>
   }
 };
 
+export const getAuthStatus = async (): Promise<boolean> => {
+  try {
+    const response = await api.get<{ authenticated: boolean }>('/auth/status');
+    return response.data.authenticated;
+  } catch (error) {
+    console.error("Failed to check auth status", error);
+    return false;
+  }
+};
+
+export const getAuthUrl = async (): Promise<string> => {
+  try {
+    const response = await api.post<{ url: string }>('/auth/login');
+    return response.data.url;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao iniciar login');
+    throw error;
+  }
+};
+
 /**
  * Handles axios errors and throws user-friendly error messages
  * @param error - The error object from axios

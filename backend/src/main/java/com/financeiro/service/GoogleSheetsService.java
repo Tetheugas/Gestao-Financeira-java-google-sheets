@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +28,8 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Serviço responsável pela integração com Google Sheets API v4.
@@ -45,33 +48,88 @@ public class GoogleSheetsService {
     @Value("${google.sheets.spreadsheet.id}")
     private String spreadsheetId;
 
+    private GoogleAuthorizationCodeFlow flow;
+    private NetHttpTransport httpTransport;
+
+    @PostConstruct
+    public void init() throws IOException, GeneralSecurityException {
+        try {
+            httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+            InputStream in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+            if (in == null) {
+                logger.error("Arquivo credentials.json não encontrado no classpath");
+                throw new FileNotFoundException("Arquivo credentials.json não encontrado. " +
+                        "Por favor, coloque o arquivo credentials.json em src/main/resources/");
+            }
+
+            GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+
+            // Configura o fluxo de autorização e armazena credenciais
+            flow = new GoogleAuthorizationCodeFlow.Builder(
+                    httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
+                    .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                    .setAccessType("offline")
+                    .build();
+        } catch (Exception e) {
+            logger.error("Failed to initialize GoogleSheetsService", e);
+            throw e;
+        }
+    }
+
+    public boolean isAuthorized() throws IOException {
+        if (flow == null) return false;
+        Credential credential = flow.loadCredential("user");
+        return credential != null && (credential.getRefreshToken() != null || credential.getExpiresInSeconds() == null || credential.getExpiresInSeconds() > 60);
+    }
+
+    public String getAuthorizationUrl() throws IOException, ExecutionException, InterruptedException {
+        CompletableFuture<String> urlFuture = new CompletableFuture<>();
+
+        // We use a custom browser to capture the URL instead of opening it
+        AuthorizationCodeInstalledApp.Browser browser = new AuthorizationCodeInstalledApp.Browser() {
+            @Override
+            public void browse(String url) throws IOException {
+                urlFuture.complete(url);
+            }
+        };
+
+        LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
+        AuthorizationCodeInstalledApp app = new AuthorizationCodeInstalledApp(flow, receiver, browser);
+
+        // Run authorize in a separate thread because it blocks waiting for the code
+        new Thread(() -> {
+            try {
+                app.authorize("user");
+            } catch (IOException e) {
+                logger.error("Error during authorization flow", e);
+                urlFuture.completeExceptionally(e);
+            }
+        }).start();
+
+        // Wait for the URL to be generated
+        return urlFuture.get();
+    }
+
     /**
      * Cria uma credencial OAuth2 autorizada.
      *
-     * @param httpTransport O transporte HTTP a ser usado.
      * @return Uma credencial OAuth2 autorizada.
      * @throws IOException Se o arquivo credentials.json não for encontrado.
      */
-    private Credential getCredentials(final NetHttpTransport httpTransport) throws IOException {
-        // Carrega o arquivo credentials.json do classpath
-        InputStream in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
-        if (in == null) {
-            logger.error("Arquivo credentials.json não encontrado no classpath");
-            throw new FileNotFoundException("Arquivo credentials.json não encontrado. " +
-                    "Por favor, coloque o arquivo credentials.json em src/main/resources/");
+    private Credential getCredentials() throws IOException {
+        Credential credential = flow.loadCredential("user");
+        if (credential == null) {
+            throw new GoogleSheetsAuthException("User not authenticated. Please login via /api/auth/login");
         }
 
-        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+        // Ensure token is valid/refreshed
+        if (credential.getExpiresInSeconds() != null && credential.getExpiresInSeconds() < 60) {
+            if (!credential.refreshToken()) {
+                throw new GoogleSheetsAuthException("Failed to refresh token. Please login again.");
+            }
+        }
 
-        // Configura o fluxo de autorização e armazena credenciais
-        GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-                httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
-                .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-                .setAccessType("offline")
-                .build();
-
-        LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-        return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
+        return credential;
     }
 
     /**
@@ -82,8 +140,7 @@ public class GoogleSheetsService {
      */
     private Sheets getSheetsService() throws GoogleSheetsAuthException {
         try {
-            final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            Credential credential = getCredentials(httpTransport);
+            Credential credential = getCredentials();
             
             logger.info("Autenticação com Google Sheets realizada com sucesso");
             
@@ -91,20 +148,10 @@ public class GoogleSheetsService {
                     .setApplicationName(APPLICATION_NAME)
                     .build();
                     
-        } catch (FileNotFoundException e) {
-            logger.error("Arquivo credentials.json não encontrado", e);
-            throw new GoogleSheetsAuthException(
-                    "Arquivo de credenciais não encontrado. Verifique se credentials.json está em src/main/resources/", 
-                    e);
         } catch (IOException e) {
             logger.error("Erro de I/O durante autenticação com Google Sheets", e);
             throw new GoogleSheetsAuthException(
                     "Erro ao ler arquivo de credenciais ou tokens de autenticação", 
-                    e);
-        } catch (GeneralSecurityException e) {
-            logger.error("Erro de segurança durante autenticação com Google Sheets", e);
-            throw new GoogleSheetsAuthException(
-                    "Erro de segurança durante autenticação. Verifique as credenciais", 
                     e);
         }
     }
@@ -363,12 +410,11 @@ public class GoogleSheetsService {
      * @throws IllegalArgumentException Se o mês fornecido for inválido
      */
     public List<com.financeiro.model.Expense> readExpenses(String sheetName, String month) throws IOException {
-        // Garante que a aba existe, se não, cria uma nova
-        ensureSheetExists(sheetName);
-
-        // ...existing code...
         // Converte o mês para letra de coluna
         String columnLetter = getColumnLetterForMonth(month);
+
+        // Garante que a aba existe, se não, cria uma nova
+        ensureSheetExists(sheetName);
 
         Sheets sheetsService = getSheetsService();
 
@@ -481,11 +527,11 @@ public class GoogleSheetsService {
             throw new IllegalArgumentException("Valor do gasto não pode ser nulo");
         }
 
-        // Garante que a aba existe, se não, cria uma nova
-        ensureSheetExists(sheetName);
-
         // Converte o mês para letra de coluna
         String columnLetter = getColumnLetterForMonth(month);
+
+        // Garante que a aba existe, se não, cria uma nova
+        ensureSheetExists(sheetName);
 
         // Encontra a próxima linha vazia na coluna A (descrições)
         int nextRow = findNextEmptyRow(sheetName, "A");
