@@ -2,7 +2,7 @@
 // Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import ExpenseList from './ExpenseList';
 import * as expenseAPI from '../services/expenseAPI';
 import type { Expense } from '../types';
@@ -183,8 +183,6 @@ describe('ExpenseList', () => {
     // Note: The total header uses Intl.NumberFormat which produces NBSP,
     // so we need to target the table cell specifically which uses the mock string
     const table = screen.getByRole('table');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { within } = require('@testing-library/react');
     const valorCell = within(table).getByText('R$ 1.234,56');
     expect(valorCell.textContent).toBe('R$ 1.234,56');
   });
