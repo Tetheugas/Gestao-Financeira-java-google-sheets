@@ -130,6 +130,36 @@ export const getAuthUrl = async (): Promise<string> => {
   }
 };
 
+export const getSpreadsheetConfig = async (): Promise<string> => {
+  try {
+    const response = await api.get<{ spreadsheetId: string }>('/spreadsheet');
+    return response.data.spreadsheetId;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao buscar ID da planilha');
+    throw error;
+  }
+};
+
+export const updateSpreadsheetConfig = async (spreadsheetId: string): Promise<MessageResponse> => {
+  try {
+    const response = await api.put<MessageResponse>('/spreadsheet', { spreadsheetId });
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao atualizar ID da planilha');
+    throw error;
+  }
+};
+
+export const createSpreadsheetConfig = async (): Promise<string> => {
+  try {
+    const response = await api.post<{ spreadsheetId: string }>('/spreadsheet');
+    return response.data.spreadsheetId;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao criar nova planilha');
+    throw error;
+  }
+};
+
 /**
  * Handles axios errors and throws user-friendly error messages
  * @param error - The error object from axios

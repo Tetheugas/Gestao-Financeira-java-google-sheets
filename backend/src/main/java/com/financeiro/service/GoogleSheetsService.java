@@ -21,10 +21,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,6 +48,7 @@ public class GoogleSheetsService {
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
     private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
+    private static final String SPREADSHEET_ID_FILE = "spreadsheet-id.txt";
 
     @Value("${google.sheets.spreadsheet.id:}")
     private String spreadsheetId;
@@ -164,8 +168,24 @@ public class GoogleSheetsService {
      * @throws IOException Se houver erro na criação ou acesso.
      */
     private String resolveSpreadsheetId() throws IOException {
+        // 1. Verifica se já está na memória
         if (this.spreadsheetId != null && !this.spreadsheetId.trim().isEmpty()) {
             return this.spreadsheetId;
+        }
+
+        // 2. Verifica se existe no arquivo local
+        File idFile = new File(SPREADSHEET_ID_FILE);
+        if (idFile.exists()) {
+            try {
+                String content = Files.readString(idFile.toPath()).trim();
+                if (!content.isEmpty()) {
+                    this.spreadsheetId = content;
+                    logger.info("Spreadsheet ID carregado do arquivo local: {}", this.spreadsheetId);
+                    return this.spreadsheetId;
+                }
+            } catch (IOException e) {
+                logger.warn("Erro ao ler arquivo de ID local", e);
+            }
         }
 
         logger.info("Spreadsheet ID não definido. Criando uma nova planilha...");
@@ -178,9 +198,70 @@ public class GoogleSheetsService {
         Spreadsheet created = service.spreadsheets().create(spreadsheet).execute();
         this.spreadsheetId = created.getSpreadsheetId();
 
+        // Salva no arquivo local
+        saveSpreadsheetIdToFile(this.spreadsheetId);
+
         logger.info("Nova planilha criada com ID: {}", this.spreadsheetId);
         logger.warn("ATENÇÃO: Para persistência entre reinícios, adicione o seguinte ID ao seu application.properties: google.sheets.spreadsheet.id={}", this.spreadsheetId);
 
+        return this.spreadsheetId;
+    }
+
+    private void saveSpreadsheetIdToFile(String id) {
+        try {
+            Files.writeString(Paths.get(SPREADSHEET_ID_FILE), id);
+            logger.info("Spreadsheet ID salvo em {}", SPREADSHEET_ID_FILE);
+        } catch (IOException e) {
+            logger.error("Erro ao salvar Spreadsheet ID em arquivo", e);
+        }
+    }
+
+    public String getSpreadsheetId() {
+        if (this.spreadsheetId == null || this.spreadsheetId.isEmpty()) {
+             try {
+                 File idFile = new File(SPREADSHEET_ID_FILE);
+                 if (idFile.exists()) {
+                     String content = Files.readString(idFile.toPath()).trim();
+                     if (!content.isEmpty()) {
+                         this.spreadsheetId = content;
+                     }
+                 }
+             } catch (IOException e) {
+                 // ignore
+             }
+        }
+        return this.spreadsheetId;
+    }
+
+    public void setSpreadsheetId(String id) throws IOException {
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID da planilha não pode ser vazio");
+        }
+
+        // Verifica acesso
+        Sheets service = getSheetsService();
+        try {
+            service.spreadsheets().get(id).execute();
+        } catch (IOException e) {
+            logger.error("Erro ao acessar planilha com ID: " + id, e);
+            throw new IllegalArgumentException("Não foi possível acessar a planilha com o ID fornecido. Verifique se o ID está correto e se você tem permissão.", e);
+        }
+
+        this.spreadsheetId = id;
+        saveSpreadsheetIdToFile(id);
+    }
+
+    public String createNewSpreadsheet() throws IOException {
+        Sheets service = getSheetsService();
+        Spreadsheet spreadsheet = new Spreadsheet()
+                .setProperties(new SpreadsheetProperties().setTitle("Gestão Financeira"));
+
+        Spreadsheet created = service.spreadsheets().create(spreadsheet).execute();
+        this.spreadsheetId = created.getSpreadsheetId();
+
+        saveSpreadsheetIdToFile(this.spreadsheetId);
+
+        logger.info("Nova planilha criada manualmente via API com ID: {}", this.spreadsheetId);
         return this.spreadsheetId;
     }
 
