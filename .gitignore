@@ -26,3 +26,9 @@ build/
 Thumbs.db
 
 !backend/src/test/resources/credentials.json
+
+# Local env files
+.env
+.env.production
+frontend/.env
+frontend/.env.production
