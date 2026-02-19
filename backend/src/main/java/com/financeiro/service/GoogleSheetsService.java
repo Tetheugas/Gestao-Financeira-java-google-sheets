@@ -46,7 +46,7 @@ public class GoogleSheetsService {
     private static final List<String> SCOPES = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
-    @Value("${google.sheets.spreadsheet.id}")
+    @Value("${google.sheets.spreadsheet.id:}")
     private String spreadsheetId;
 
     private GoogleAuthorizationCodeFlow flow;
@@ -157,6 +157,33 @@ public class GoogleSheetsService {
         }
     }
 
+    /**
+     * Resolve o ID da planilha. Se não estiver definido, cria uma nova.
+     *
+     * @return O ID da planilha.
+     * @throws IOException Se houver erro na criação ou acesso.
+     */
+    private String resolveSpreadsheetId() throws IOException {
+        if (this.spreadsheetId != null && !this.spreadsheetId.trim().isEmpty()) {
+            return this.spreadsheetId;
+        }
+
+        logger.info("Spreadsheet ID não definido. Criando uma nova planilha...");
+
+        Sheets service = getSheetsService();
+
+        Spreadsheet spreadsheet = new Spreadsheet()
+                .setProperties(new SpreadsheetProperties().setTitle("Gestão Financeira"));
+
+        Spreadsheet created = service.spreadsheets().create(spreadsheet).execute();
+        this.spreadsheetId = created.getSpreadsheetId();
+
+        logger.info("Nova planilha criada com ID: {}", this.spreadsheetId);
+        logger.warn("ATENÇÃO: Para persistência entre reinícios, adicione o seguinte ID ao seu application.properties: google.sheets.spreadsheet.id={}", this.spreadsheetId);
+
+        return this.spreadsheetId;
+    }
+
 
     /**
      * Converte o nome do mês em português para a letra da coluna correspondente na planilha.
@@ -222,6 +249,7 @@ public class GoogleSheetsService {
      */
     private int findNextEmptyRow(String sheetName, String columnLetter) throws IOException {
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         // Define o range para ler a coluna inteira a partir da linha 2
         // Lê até a linha 1000 para ter um limite razoável
@@ -232,7 +260,7 @@ public class GoogleSheetsService {
         try {
 
             var result = sheetsService.spreadsheets().values()
-                    .get(spreadsheetId, range)
+                    .get(currentSpreadsheetId, range)
                     .execute();
 
             List<List<Object>> values = result.getValues();
@@ -278,9 +306,10 @@ public class GoogleSheetsService {
     private boolean sheetExists(String sheetName) throws GoogleSheetsAuthException {
         try {
             Sheets sheetsService = getSheetsService();
+            String currentSpreadsheetId = resolveSpreadsheetId();
 
             Spreadsheet spreadsheet = sheetsService.spreadsheets()
-                    .get(spreadsheetId)
+                    .get(currentSpreadsheetId)
                     .setFields("sheets.properties.title")
                     .execute();
 
@@ -315,6 +344,7 @@ public class GoogleSheetsService {
     public void createSheet(String sheetName) throws GoogleSheetsAuthException, IOException {
         try {
             Sheets sheetsService = getSheetsService();
+            String currentSpreadsheetId = resolveSpreadsheetId();
 
             // Cria a requisição para adicionar uma nova aba
             BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
@@ -330,7 +360,7 @@ public class GoogleSheetsService {
             batchUpdateRequest.setRequests(Collections.singletonList(request));
 
             BatchUpdateSpreadsheetResponse response = sheetsService.spreadsheets()
-                    .batchUpdate(spreadsheetId, batchUpdateRequest)
+                    .batchUpdate(currentSpreadsheetId, batchUpdateRequest)
                     .execute();
 
             logger.info("Nova aba '{}' criada com sucesso na planilha", sheetName);
@@ -354,6 +384,7 @@ public class GoogleSheetsService {
      */
     private void addMonthHeaders(String sheetName) throws IOException, GoogleSheetsAuthException {
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         // Cria a lista de headers: coluna A é "Descrição", depois vêm os meses
         List<Object> headers = new ArrayList<>();
@@ -378,7 +409,7 @@ public class GoogleSheetsService {
                 .setValues(Collections.singletonList(headers));
 
         sheetsService.spreadsheets().values()
-                .update(spreadsheetId, headerRange, headerValueRange)
+                .update(currentSpreadsheetId, headerRange, headerValueRange)
                 .setValueInputOption("RAW")
                 .execute();
 
@@ -409,9 +440,10 @@ public class GoogleSheetsService {
     public List<String> getSheetNames() throws IOException {
         try {
             Sheets sheetsService = getSheetsService();
+            String currentSpreadsheetId = resolveSpreadsheetId();
 
             Spreadsheet spreadsheet = sheetsService.spreadsheets()
-                    .get(spreadsheetId)
+                    .get(currentSpreadsheetId)
                     .setFields("sheets.properties.title")
                     .execute();
 
@@ -440,9 +472,10 @@ public class GoogleSheetsService {
     private Integer getSheetId(String sheetName) throws IOException {
         try {
             Sheets sheetsService = getSheetsService();
+            String currentSpreadsheetId = resolveSpreadsheetId();
 
             Spreadsheet spreadsheet = sheetsService.spreadsheets()
-                    .get(spreadsheetId)
+                    .get(currentSpreadsheetId)
                     .setFields("sheets.properties.title,sheets.properties.sheetId")
                     .execute();
 
@@ -481,6 +514,7 @@ public class GoogleSheetsService {
         ensureSheetExists(sheetName);
 
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         // Define o range para ler a coluna A (descrições) e a coluna do mês
         // Lê a partir da linha 2 (linha 1 é o header) até a linha 1000
@@ -490,7 +524,8 @@ public class GoogleSheetsService {
 
         try {
             var result = sheetsService.spreadsheets().values()
-                    .get(spreadsheetId, range)
+                    .get(currentSpreadsheetId, range)
+                    .setValueRenderOption("UNFORMATTED_VALUE") // Use UNFORMATTED_VALUE para obter números brutos
                     .execute();
 
             List<List<Object>> values = result.getValues();
@@ -526,27 +561,45 @@ public class GoogleSheetsService {
                 }
 
                 // Obtém o valor da coluna do mês
-                // O índice na row é relativo ao range (A2:X1000)
-                // Coluna A é índice 0, coluna B é índice 1, etc.
-                String valorStr = row.size() > monthColumnIndex && row.get(monthColumnIndex) != null
-                    ? row.get(monthColumnIndex).toString().trim()
-                    : "";
+                Object cellValue = row.size() > monthColumnIndex ? row.get(monthColumnIndex) : null;
 
                 // Se não há valor para este mês, pula esta linha
-                if (valorStr.isEmpty()) {
+                if (cellValue == null || cellValue.toString().trim().isEmpty()) {
                     continue;
                 }
 
-                // Tenta converter o valor para Double
                 try {
-                    // Remove formatação se houver (R$, pontos, vírgulas)
-                    String cleanValue = valorStr
-                        .replace("R$", "")
-                        .replace(".", "")
-                        .replace(",", ".")
-                        .trim();
+                    Double valor;
 
-                    Double valor = Double.parseDouble(cleanValue);
+                    if (cellValue instanceof Number) {
+                        valor = ((Number) cellValue).doubleValue();
+                    } else {
+                        String valorStr = cellValue.toString().trim();
+                        // Tenta converter o valor string para Double com lógica robusta
+                        try {
+                            // Tenta parse direto (padrão US: 38.9)
+                            valor = Double.parseDouble(valorStr);
+                        } catch (NumberFormatException e) {
+                            // Fallback para formato brasileiro ou misto
+                            // Remove tudo que não for dígito, ponto, vírgula ou sinal de menos
+                            String cleanValue = valorStr.replaceAll("[^\\d.,-]", "").trim();
+
+                            if (cleanValue.contains(",") && cleanValue.contains(".")) {
+                                // Se tem ponto e vírgula, assume BR: ponto=milhar, vírgula=decimal
+                                cleanValue = cleanValue.replace(".", "").replace(",", ".");
+                            } else if (cleanValue.contains(",")) {
+                                // Se só tem vírgula, assume decimal
+                                cleanValue = cleanValue.replace(",", ".");
+                            }
+                            // Se só tem ponto, assume decimal (US) ou milhar?
+                            // Como tentamos Double.parseDouble antes e falhou, deve ser algo estranho ou milhar.
+                            // Mas se falhou no parseDouble("1.200"), é porque é válido? Não, 1.200 é válido double.
+                            // Então se cair aqui, é porque parseDouble falhou.
+                            // Ex: "R$ 1.200,50" -> parseDouble falha. cleanValue="1.200,50".
+
+                            valor = Double.parseDouble(cleanValue);
+                        }
+                    }
 
                     // O índice da linha na planilha é i + 2 (porque values começa em Row 2)
                     int rowId = i + 2;
@@ -557,7 +610,7 @@ public class GoogleSheetsService {
 
                 } catch (NumberFormatException e) {
                     logger.warn("Valor inválido encontrado na linha com descrição '{}': {}",
-                               descricao, valorStr);
+                               descricao, cellValue);
                     // Continua processando as outras linhas
                 }
             }
@@ -606,6 +659,7 @@ public class GoogleSheetsService {
         int nextRow = findNextEmptyRow(sheetName, "A");
 
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         logger.debug("Adicionando gasto '{}' com valor {} na linha {} do mês {} (coluna {})",
                     expense.getDescricao(), expense.getValor(), nextRow, month, columnLetter);
@@ -622,10 +676,8 @@ public class GoogleSheetsService {
                         Collections.singletonList(expense.getDescricao())
                     ));
 
-            sheetsService.spreadsheets().get(spreadsheetId);
-
             sheetsService.spreadsheets().values()
-                .update(spreadsheetId, descricaoRange, descricaoValueRange)
+                .update(currentSpreadsheetId, descricaoRange, descricaoValueRange)
                 .setValueInputOption("RAW")
                 .execute();
 
@@ -640,7 +692,7 @@ public class GoogleSheetsService {
                     ));
 
             sheetsService.spreadsheets().values()
-                .update(spreadsheetId, valorRange, valorValueRange)
+                .update(currentSpreadsheetId, valorRange, valorValueRange)
                 .setValueInputOption("RAW")
                 .execute();
 
@@ -675,6 +727,7 @@ public class GoogleSheetsService {
 
         String columnLetter = getColumnLetterForMonth(month);
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         try {
             // Atualiza a descrição na coluna A
@@ -686,7 +739,7 @@ public class GoogleSheetsService {
                     ));
 
             sheetsService.spreadsheets().values()
-                .update(spreadsheetId, descricaoRange, descricaoValueRange)
+                .update(currentSpreadsheetId, descricaoRange, descricaoValueRange)
                 .setValueInputOption("RAW")
                 .execute();
 
@@ -699,7 +752,7 @@ public class GoogleSheetsService {
                     ));
 
             sheetsService.spreadsheets().values()
-                .update(spreadsheetId, valorRange, valorValueRange)
+                .update(currentSpreadsheetId, valorRange, valorValueRange)
                 .setValueInputOption("RAW")
                 .execute();
 
@@ -728,6 +781,7 @@ public class GoogleSheetsService {
         }
 
         Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
 
         try {
             BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
@@ -743,7 +797,7 @@ public class GoogleSheetsService {
             batchUpdateRequest.setRequests(Collections.singletonList(request));
 
             sheetsService.spreadsheets()
-                .batchUpdate(spreadsheetId, batchUpdateRequest)
+                .batchUpdate(currentSpreadsheetId, batchUpdateRequest)
                 .execute();
 
             logger.info("Linha {} removida com sucesso da aba {}", rowId, sheetName);
@@ -756,8 +810,9 @@ public class GoogleSheetsService {
 
     public boolean isSpreadsheetAccessible() {
         try {
+            String currentSpreadsheetId = resolveSpreadsheetId();
             Sheets sheetsService = getSheetsService();
-            sheetsService.spreadsheets().get(spreadsheetId);
+            sheetsService.spreadsheets().get(currentSpreadsheetId);
             return true;
         } catch (Exception e) {
             logger.error("Erro ao acessar a planilha: {}", e.getMessage());
