@@ -4,11 +4,12 @@
 import { useState, useEffect } from 'react';
 import ExpenseList from './components/ExpenseList';
 import ExpenseForm from './components/ExpenseForm';
-import { getAuthStatus, getAuthUrl } from './services/expenseAPI';
+import { getAuthStatus, getAuthUrl, getFilters, createFilter } from './services/expenseAPI';
 
 function App() {
   const [aba, setAba] = useState('CartaoNubank');
   const [mes, setMes] = useState('Fevereiro');
+  const [filters, setFilters] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
@@ -19,6 +20,24 @@ function App() {
   const checkAuth = async () => {
     const isAuth = await getAuthStatus();
     setShowAuthModal(!isAuth);
+    if (isAuth) {
+      fetchFilters();
+    }
+  };
+
+  const fetchFilters = async () => {
+    try {
+      const data = await getFilters();
+      if (data && data.length > 0) {
+        setFilters(data);
+        // If current aba is not in the list, switch to the first one
+        if (!data.includes(aba)) {
+          setAba(data[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch filters", error);
+    }
   };
 
   const handleLogin = async () => {
@@ -33,6 +52,7 @@ function App() {
           if (isAuth) {
             clearInterval(pollInterval);
             setShowAuthModal(false);
+            fetchFilters();
             setRefreshKey(prev => prev + 1); // Refresh data
           }
         }, 2000);
@@ -46,6 +66,19 @@ function App() {
   const handleExpenseAdded = () => {
     // Trigger ExpenseList refresh by updating key
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleAddFilter = async () => {
+    const name = window.prompt("Nome da nova aba (filtro):");
+    if (name && name.trim()) {
+      try {
+        await createFilter(name.trim());
+        await fetchFilters();
+        setAba(name.trim());
+      } catch (error) {
+        alert("Erro ao criar filtro: " + (error instanceof Error ? error.message : "Erro desconhecido"));
+      }
+    }
   };
 
   return (
@@ -70,9 +103,17 @@ function App() {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="aba" className="block text-sm font-medium text-gray-700 mb-1">
-                    Conta / Cartão
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="aba" className="block text-sm font-medium text-gray-700">
+                      Conta / Cartão
+                    </label>
+                    <button
+                      onClick={handleAddFilter}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
+                    >
+                      + Nova Aba
+                    </button>
+                  </div>
                   <div className="relative">
                     <select
                       id="aba"
@@ -80,10 +121,13 @@ function App() {
                       onChange={(e) => setAba(e.target.value)}
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm py-2.5 px-3 bg-gray-50 border"
                     >
-                      <option value="CartaoNubank">Cartão Nubank</option>
-                      <option value="CartaoInter">Cartão Inter</option>
-                      <option value="CartaoSantander">Cartão Santander</option>
-                      <option value="Dinheiro">Dinheiro</option>
+                      {filters.length > 0 ? (
+                        filters.map(filter => (
+                          <option key={filter} value={filter}>{filter}</option>
+                        ))
+                      ) : (
+                        <option value="CartaoNubank">Carregando...</option>
+                      )}
                     </select>
                   </div>
                 </div>

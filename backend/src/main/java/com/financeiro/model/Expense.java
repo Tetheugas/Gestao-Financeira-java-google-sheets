@@ -6,6 +6,7 @@ package com.financeiro.model;
  */
 public class Expense {
     
+    private int rowId;
     private String descricao;
     private Double valor;
     
@@ -16,7 +17,20 @@ public class Expense {
     }
     
     /**
-     * Construtor com todos os campos.
+     * Construtor com todos os campos (para leitura).
+     *
+     * @param rowId Índice da linha na planilha
+     * @param descricao Descrição do gasto
+     * @param valor Valor monetário do gasto
+     */
+    public Expense(int rowId, String descricao, Double valor) {
+        this.rowId = rowId;
+        this.descricao = descricao;
+        this.valor = valor;
+    }
+
+    /**
+     * Construtor para criação (sem rowId).
      * 
      * @param descricao Descrição do gasto
      * @param valor Valor monetário do gasto
@@ -26,6 +40,14 @@ public class Expense {
         this.valor = valor;
     }
     
+    public int getRowId() {
+        return rowId;
+    }
+
+    public void setRowId(int rowId) {
+        this.rowId = rowId;
+    }
+
     /**
      * Obtém a descrição do gasto.
      * 

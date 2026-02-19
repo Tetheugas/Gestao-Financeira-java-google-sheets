@@ -1,7 +1,7 @@
 // ExpenseForm component for adding new expenses
 // Requirements: 6.1, 6.2, 6.3, 6.4
 
-import { useState, FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { addExpense } from '../services/expenseAPI';
 
 interface ExpenseFormProps {

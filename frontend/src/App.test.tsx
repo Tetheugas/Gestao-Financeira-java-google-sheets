@@ -15,6 +15,10 @@ describe('App Component', () => {
     vi.clearAllMocks();
     // Default mock for getExpenses
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue([]);
+    // Default mock for getFilters
+    vi.mocked(expenseAPI.getFilters).mockResolvedValue(['CartaoNubank', 'CartaoInter', 'CartaoSantander', 'Dinheiro']);
+    // Default mock for auth
+    vi.mocked(expenseAPI.getAuthStatus).mockResolvedValue(true);
   });
 
   it('renders the app title', () => {
@@ -22,16 +26,21 @@ describe('App Component', () => {
     expect(screen.getByText('Gestão Financeira')).toBeInTheDocument();
   });
 
-  it('renders aba and mes selectors', () => {
+  it('renders aba and mes selectors', async () => {
     render(<App />);
     
     expect(screen.getByLabelText('Conta / Cartão')).toBeInTheDocument();
     expect(screen.getByLabelText('Mês de Referência')).toBeInTheDocument();
   });
 
-  it('has default values for aba and mes', () => {
+  it('has default values for aba and mes', async () => {
     render(<App />);
     
+    // Wait for filters to load
+    await waitFor(() => {
+        expect(expenseAPI.getFilters).toHaveBeenCalled();
+    });
+
     const abaSelect = screen.getByLabelText('Conta / Cartão') as HTMLSelectElement;
     const mesSelect = screen.getByLabelText('Mês de Referência') as HTMLSelectElement;
     
@@ -47,16 +56,24 @@ describe('App Component', () => {
     expect(screen.getByLabelText('Valor (R$)')).toBeInTheDocument();
   });
 
-  it('renders ExpenseList component', () => {
+  it('renders ExpenseList component', async () => {
     render(<App />);
     
-    expect(screen.getByText('Fevereiro • CartaoNubank')).toBeInTheDocument();
+    // Wait for initial render
+    await waitFor(() => {
+        expect(screen.getByText('Fevereiro • CartaoNubank')).toBeInTheDocument();
+    });
   });
 
   it('updates aba when selector changes', async () => {
     const user = userEvent.setup();
     render(<App />);
     
+    // Wait for filters to load
+    await waitFor(() => {
+        expect(expenseAPI.getFilters).toHaveBeenCalled();
+    });
+
     const abaSelect = screen.getByLabelText('Conta / Cartão');
     await user.selectOptions(abaSelect, 'CartaoInter');
     
@@ -82,14 +99,6 @@ describe('App Component', () => {
     await waitFor(() => {
       expect(expenseAPI.getExpenses).toHaveBeenCalledWith('Fevereiro', 'CartaoNubank');
     });
-  });
-
-  it('passes aba and mes to ExpenseForm', () => {
-    render(<App />);
-    
-    // ExpenseForm should receive aba and mes props
-    // We can verify this by checking if the form is rendered (it would fail if props were wrong)
-    expect(screen.getByText('Adicionar Gasto')).toBeInTheDocument();
   });
 
   it('reloads ExpenseList after adding expense', async () => {
@@ -120,8 +129,8 @@ describe('App Component', () => {
 
   it('displays expenses in the list', async () => {
     vi.mocked(expenseAPI.getExpenses).mockResolvedValue([
-      { descricao: 'Netflix', valorFormatado: 'R$ 45,90' },
-      { descricao: 'Uber', valorFormatado: 'R$ 32,50' }
+      { rowId: 1, descricao: 'Netflix', valorFormatado: 'R$ 45,90', valor: 45.90 },
+      { rowId: 2, descricao: 'Uber', valorFormatado: 'R$ 32,50', valor: 32.50 }
     ]);
     
     render(<App />);

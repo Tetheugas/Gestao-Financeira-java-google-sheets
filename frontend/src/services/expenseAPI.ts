@@ -47,6 +47,69 @@ export const addExpense = async (data: ExpenseRequest): Promise<MessageResponse>
   }
 };
 
+/**
+ * Fetches available filters (sheet names)
+ * @returns Promise with array of filter names
+ */
+export const getFilters = async (): Promise<string[]> => {
+  try {
+    const response = await api.get<string[]>('/filters');
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao buscar filtros');
+    throw error;
+  }
+};
+
+/**
+ * Creates a new filter (sheet)
+ * @param name - Name of the new filter
+ * @returns Promise with success message
+ */
+export const createFilter = async (name: string): Promise<MessageResponse> => {
+  try {
+    const response = await api.post<MessageResponse>('/filters', { name });
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao criar filtro');
+    throw error;
+  }
+};
+
+/**
+ * Updates an existing expense
+ * @param rowId - The row ID of the expense to update
+ * @param data - The new expense data
+ * @returns Promise with success message
+ */
+export const updateExpense = async (rowId: number, data: ExpenseRequest): Promise<MessageResponse> => {
+  try {
+    const response = await api.put<MessageResponse>(`/expenses/${rowId}`, data);
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao atualizar gasto');
+    throw error;
+  }
+};
+
+/**
+ * Deletes an expense
+ * @param rowId - The row ID of the expense to delete
+ * @param aba - The sheet name where the expense is located
+ * @returns Promise with success message
+ */
+export const deleteExpense = async (rowId: number, aba: string): Promise<MessageResponse> => {
+  try {
+    const response = await api.delete<MessageResponse>(`/expenses/${rowId}`, {
+      params: { aba },
+    });
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao remover gasto');
+    throw error;
+  }
+};
+
 export const getAuthStatus = async (): Promise<boolean> => {
   try {
     const response = await api.get<{ authenticated: boolean }>('/auth/status');
