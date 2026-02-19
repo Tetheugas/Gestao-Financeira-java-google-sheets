@@ -5,7 +5,14 @@ import { useState, useEffect } from 'react';
 import ExpenseList from './components/ExpenseList';
 import ExpenseForm from './components/ExpenseForm';
 import SpreadsheetConfigModal from './components/SpreadsheetConfigModal';
-import { getAuthStatus, getAuthUrl, getFilters, createFilter } from './services/expenseAPI';
+import {
+  getAuthStatus,
+  getAuthUrl,
+  getFilters,
+  createFilter,
+  renameFilter,
+  deleteFilter
+} from './services/expenseAPI';
 
 function App() {
   const [aba, setAba] = useState('CartaoNubank');
@@ -83,6 +90,52 @@ function App() {
     }
   };
 
+  const handleRenameFilter = async () => {
+    const newName = window.prompt("Novo nome para o filtro:", aba);
+    if (newName && newName.trim() && newName !== aba) {
+      if (confirm(`Tem certeza que deseja renomear "${aba}" para "${newName.trim()}"?`)) {
+        try {
+          await renameFilter(aba, newName.trim());
+          const oldName = aba;
+          const updatedName = newName.trim();
+
+          // Update local state directly to reflect change immediately if fetch fails or is slow
+          setFilters(prev => prev.map(f => f === oldName ? updatedName : f));
+          setAba(updatedName);
+
+          // Also fetch from server to be sure
+          fetchFilters();
+        } catch (error) {
+          alert("Erro ao renomear filtro: " + (error instanceof Error ? error.message : "Erro desconhecido"));
+        }
+      }
+    }
+  };
+
+  const handleDeleteFilter = async () => {
+    if (filters.length <= 1) {
+      alert("Não é possível apagar o único filtro existente.");
+      return;
+    }
+
+    if (confirm(`Tem certeza que deseja APAGAR o filtro "${aba}" e TODOS os seus dados? Esta ação não pode ser desfeita.`)) {
+      try {
+        await deleteFilter(aba);
+
+        // Find another filter to switch to
+        const remainingFilters = filters.filter(f => f !== aba);
+        if (remainingFilters.length > 0) {
+          setAba(remainingFilters[0]);
+        }
+
+        // Refresh filters
+        fetchFilters();
+      } catch (error) {
+        alert("Erro ao apagar filtro: " + (error instanceof Error ? error.message : "Erro desconhecido"));
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -121,14 +174,30 @@ function App() {
                     <label htmlFor="aba" className="block text-sm font-medium text-gray-700">
                       Conta / Cartão
                     </label>
-                    <button
-                      onClick={handleAddFilter}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
-                    >
-                      + Nova Aba
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleRenameFilter}
+                        className="text-xs text-gray-500 hover:text-indigo-600 font-medium focus:outline-none flex items-center"
+                        title="Renomear aba atual"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Editar
+                      </button>
+                      <button
+                        onClick={handleDeleteFilter}
+                        className="text-xs text-gray-500 hover:text-red-600 font-medium focus:outline-none flex items-center"
+                        title="Apagar aba atual"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Apagar
+                      </button>
+                    </div>
                   </div>
-                  <div className="relative">
+                  <div className="relative mb-2">
                     <select
                       id="aba"
                       value={aba}
@@ -143,6 +212,14 @@ function App() {
                         <option value="CartaoNubank">Carregando...</option>
                       )}
                     </select>
+                  </div>
+                  <div className="text-right">
+                    <button
+                        onClick={handleAddFilter}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
+                      >
+                        + Nova Aba
+                    </button>
                   </div>
                 </div>
 
