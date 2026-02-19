@@ -1,0 +1,27 @@
+# Exemplo de application.properties para desenvolvimento local
+# Não inclua segredos neste arquivo — use variáveis de ambiente.
+
+# Server Configuration
+server.port=8080
+
+# Application Name
+spring.application.name=gestao-financeira-backend
+
+# CORS Configuration
+spring.web.cors.allowed-origins=http://localhost:5173
+spring.web.cors.allowed-methods=GET,POST,PUT,DELETE,OPTIONS
+spring.web.cors.allowed-headers=*
+spring.web.cors.allow-credentials=true
+
+# Google Sheets Configuration
+# Substitua pelo ID da sua planilha
+google.sheets.spreadsheet.id=<SUA_PLANILHA_ID>
+
+# Logging
+logging.level.root=INFO
+logging.level.com.financeiro=DEBUG
+
+# Dica: para credenciais do Google, coloque o arquivo credentials.json fora do repo e
+# defina uma variável de ambiente apontando para ele, por exemplo:
+# CREDENTIALS_JSON_PATH=C:/path/to/credentials.json
+
