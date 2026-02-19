@@ -19,21 +19,21 @@ describe('App Component', () => {
 
   it('renders the app title', () => {
     render(<App />);
-    expect(screen.getByText('Gestão Financeira Pessoal')).toBeInTheDocument();
+    expect(screen.getByText('Gestão Financeira')).toBeInTheDocument();
   });
 
   it('renders aba and mes selectors', () => {
     render(<App />);
     
-    expect(screen.getByLabelText('Aba')).toBeInTheDocument();
-    expect(screen.getByLabelText('Mês')).toBeInTheDocument();
+    expect(screen.getByLabelText('Conta / Cartão')).toBeInTheDocument();
+    expect(screen.getByLabelText('Mês de Referência')).toBeInTheDocument();
   });
 
   it('has default values for aba and mes', () => {
     render(<App />);
     
-    const abaSelect = screen.getByLabelText('Aba') as HTMLSelectElement;
-    const mesSelect = screen.getByLabelText('Mês') as HTMLSelectElement;
+    const abaSelect = screen.getByLabelText('Conta / Cartão') as HTMLSelectElement;
+    const mesSelect = screen.getByLabelText('Mês de Referência') as HTMLSelectElement;
     
     expect(abaSelect.value).toBe('CartaoNubank');
     expect(mesSelect.value).toBe('Fevereiro');
@@ -44,35 +44,35 @@ describe('App Component', () => {
     
     expect(screen.getByRole('heading', { name: 'Adicionar Gasto' })).toBeInTheDocument();
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument();
-    expect(screen.getByLabelText('Valor')).toBeInTheDocument();
+    expect(screen.getByLabelText('Valor (R$)')).toBeInTheDocument();
   });
 
   it('renders ExpenseList component', () => {
     render(<App />);
     
-    expect(screen.getByText(/Gastos de Fevereiro - CartaoNubank/)).toBeInTheDocument();
+    expect(screen.getByText('Fevereiro • CartaoNubank')).toBeInTheDocument();
   });
 
   it('updates aba when selector changes', async () => {
     const user = userEvent.setup();
     render(<App />);
     
-    const abaSelect = screen.getByLabelText('Aba');
+    const abaSelect = screen.getByLabelText('Conta / Cartão');
     await user.selectOptions(abaSelect, 'CartaoInter');
     
     expect((abaSelect as HTMLSelectElement).value).toBe('CartaoInter');
-    expect(screen.getByText(/Gastos de Fevereiro - CartaoInter/)).toBeInTheDocument();
+    expect(screen.getByText('Fevereiro • CartaoInter')).toBeInTheDocument();
   });
 
   it('updates mes when selector changes', async () => {
     const user = userEvent.setup();
     render(<App />);
     
-    const mesSelect = screen.getByLabelText('Mês');
+    const mesSelect = screen.getByLabelText('Mês de Referência');
     await user.selectOptions(mesSelect, 'Marco');
     
     expect((mesSelect as HTMLSelectElement).value).toBe('Marco');
-    expect(screen.getByText(/Gastos de Março - CartaoNubank/)).toBeInTheDocument();
+    expect(screen.getByText('Marco • CartaoNubank')).toBeInTheDocument();
   });
 
   it('passes aba and mes to ExpenseList', async () => {
@@ -103,13 +103,13 @@ describe('App Component', () => {
     
     // Fill form
     await user.type(screen.getByLabelText('Descrição'), 'Netflix');
-    await user.type(screen.getByLabelText('Valor'), '45.90');
+    await user.type(screen.getByLabelText('Valor (R$)'), '45.90');
     
     // Clear initial call
     vi.mocked(expenseAPI.getExpenses).mockClear();
     
     // Submit form
-    await user.click(screen.getByText('Adicionar Gasto'));
+    await user.click(screen.getByText('Adicionar'));
     
     // Wait for form submission and list reload
     await waitFor(() => {
@@ -127,10 +127,17 @@ describe('App Component', () => {
     render(<App />);
     
     await waitFor(() => {
-      expect(screen.getByText('Netflix')).toBeInTheDocument();
-      expect(screen.getByText('R$ 45,90')).toBeInTheDocument();
-      expect(screen.getByText('Uber')).toBeInTheDocument();
-      expect(screen.getByText('R$ 32,50')).toBeInTheDocument();
+      const netflixItems = screen.getAllByText('Netflix');
+      expect(netflixItems.length).toBeGreaterThan(0);
+
+      const valueItems = screen.getAllByText('R$ 45,90');
+      expect(valueItems.length).toBeGreaterThan(0);
+
+      const uberItems = screen.getAllByText('Uber');
+      expect(uberItems.length).toBeGreaterThan(0);
+
+      const uberValueItems = screen.getAllByText('R$ 32,50');
+      expect(uberValueItems.length).toBeGreaterThan(0);
     });
   });
 
@@ -139,7 +146,7 @@ describe('App Component', () => {
     
     // Check for responsive classes
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
-    expect(container.querySelector('.max-w-4xl')).toBeInTheDocument();
-    expect(container.querySelector('.md\\:grid-cols-2')).toBeInTheDocument();
+    expect(container.querySelector('.max-w-7xl')).toBeInTheDocument();
+    expect(container.querySelector('.lg\\:grid-cols-3')).toBeInTheDocument();
   });
 });

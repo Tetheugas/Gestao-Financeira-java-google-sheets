@@ -29,8 +29,8 @@ describe('ExpenseForm', () => {
 
     expect(screen.getByRole('heading', { name: 'Adicionar Gasto' })).toBeInTheDocument();
     expect(screen.getByLabelText('Descrição')).toBeInTheDocument();
-    expect(screen.getByLabelText('Valor')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Adicionar Gasto' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Valor (R$)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Adicionar' })).toBeInTheDocument();
   });
 
   it('should update descricao field when user types', async () => {
@@ -47,7 +47,7 @@ describe('ExpenseForm', () => {
     const user = userEvent.setup();
     render(<ExpenseForm {...defaultProps} />);
 
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
     await user.type(valorInput, '45.90');
 
     expect(valorInput).toHaveValue('45.90');
@@ -57,7 +57,7 @@ describe('ExpenseForm', () => {
     const user = userEvent.setup();
     render(<ExpenseForm {...defaultProps} />);
 
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
     await user.type(valorInput, 'abc123.45xyz');
 
     expect(valorInput).toHaveValue('123.45');
@@ -67,7 +67,7 @@ describe('ExpenseForm', () => {
     const user = userEvent.setup();
     render(<ExpenseForm {...defaultProps} />);
 
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
     await user.type(valorInput, '1.234,56');
 
     expect(valorInput).toHaveValue('1.234,56');
@@ -77,10 +77,10 @@ describe('ExpenseForm', () => {
     const user = userEvent.setup();
     render(<ExpenseForm {...defaultProps} />);
 
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
     await user.type(valorInput, '100');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     expect(await screen.findByText('Descrição é obrigatória')).toBeInTheDocument();
@@ -94,7 +94,7 @@ describe('ExpenseForm', () => {
     const descricaoInput = screen.getByLabelText('Descrição');
     await user.type(descricaoInput, 'Netflix');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     expect(await screen.findByText('Valor deve ser um número válido')).toBeInTheDocument();
@@ -109,10 +109,10 @@ describe('ExpenseForm', () => {
     await user.type(descricaoInput, 'Netflix');
 
     // Manually set invalid value (bypassing filter)
-    const valorInput = screen.getByLabelText('Valor') as HTMLInputElement;
+    const valorInput = screen.getByLabelText('Valor (R$)') as HTMLInputElement;
     valorInput.value = 'invalid';
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     expect(await screen.findByText('Valor deve ser um número válido')).toBeInTheDocument();
@@ -129,12 +129,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -157,12 +157,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -181,12 +181,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -202,12 +202,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     expect(await screen.findByText(errorMessage)).toBeInTheDocument();
@@ -225,12 +225,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     // Check loading state
@@ -241,7 +241,7 @@ describe('ExpenseForm', () => {
     resolvePromise!({ message: 'Success', status: 'success' });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Adicionar Gasto' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Adicionar' })).toBeInTheDocument();
     });
   });
 
@@ -256,12 +256,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, 'Netflix');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     // Check inputs are disabled
@@ -287,12 +287,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, '  Netflix  ');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -310,12 +310,12 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm {...defaultProps} />);
 
     const descricaoInput = screen.getByLabelText('Descrição');
-    const valorInput = screen.getByLabelText('Valor');
+    const valorInput = screen.getByLabelText('Valor (R$)');
 
     await user.type(descricaoInput, '   ');
     await user.type(valorInput, '45.90');
 
-    const submitButton = screen.getByRole('button', { name: 'Adicionar Gasto' });
+    const submitButton = screen.getByRole('button', { name: 'Adicionar' });
     await user.click(submitButton);
 
     expect(await screen.findByText('Descrição é obrigatória')).toBeInTheDocument();
