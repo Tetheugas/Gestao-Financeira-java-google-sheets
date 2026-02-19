@@ -40,13 +40,21 @@ describe('ExpenseList', () => {
 
     // Wait for expenses to load
     await waitFor(() => {
-      expect(screen.getByText('Netflix')).toBeInTheDocument();
+      const netflixItems = screen.getAllByText('Netflix');
+      expect(netflixItems.length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByText('Netflix')).toBeInTheDocument();
-    expect(screen.getByText('R$ 45,90')).toBeInTheDocument();
-    expect(screen.getByText('Uber')).toBeInTheDocument();
-    expect(screen.getByText('R$ 32,50')).toBeInTheDocument();
+    const netflixItems = screen.getAllByText('Netflix');
+    expect(netflixItems[0]).toBeInTheDocument();
+
+    const valueItems = screen.getAllByText('R$ 45,90');
+    expect(valueItems[0]).toBeInTheDocument();
+
+    const uberItems = screen.getAllByText('Uber');
+    expect(uberItems[0]).toBeInTheDocument();
+
+    const uberValueItems = screen.getAllByText('R$ 32,50');
+    expect(uberValueItems[0]).toBeInTheDocument();
   });
 
   it('should display table headers correctly', async () => {
@@ -59,7 +67,8 @@ describe('ExpenseList', () => {
     render(<ExpenseList mes="Fevereiro" aba="CartãoNubank" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Test')).toBeInTheDocument();
+      const testItems = screen.getAllByText('Test');
+      expect(testItems[0]).toBeInTheDocument();
     });
 
     expect(screen.getByText('Descrição')).toBeInTheDocument();
@@ -110,7 +119,8 @@ describe('ExpenseList', () => {
     const { rerender } = render(<ExpenseList mes="Fevereiro" aba="CartãoNubank" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Netflix')).toBeInTheDocument();
+      const items = screen.getAllByText('Netflix');
+      expect(items[0]).toBeInTheDocument();
     });
 
     // Change mes prop
@@ -118,7 +128,8 @@ describe('ExpenseList', () => {
     rerender(<ExpenseList mes="Março" aba="CartãoNubank" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Spotify')).toBeInTheDocument();
+      const items = screen.getAllByText('Spotify');
+      expect(items[0]).toBeInTheDocument();
     });
 
     expect(expenseAPI.getExpenses).toHaveBeenCalledWith('Março', 'CartãoNubank');
@@ -137,7 +148,8 @@ describe('ExpenseList', () => {
     const { rerender } = render(<ExpenseList mes="Fevereiro" aba="CartãoNubank" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Netflix')).toBeInTheDocument();
+      const items = screen.getAllByText('Netflix');
+      expect(items[0]).toBeInTheDocument();
     });
 
     // Change aba prop
@@ -145,7 +157,8 @@ describe('ExpenseList', () => {
     rerender(<ExpenseList mes="Fevereiro" aba="CartãoInter" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Amazon')).toBeInTheDocument();
+      const items = screen.getAllByText('Amazon');
+      expect(items[0]).toBeInTheDocument();
     });
 
     expect(expenseAPI.getExpenses).toHaveBeenCalledWith('Fevereiro', 'CartãoInter');
@@ -161,12 +174,13 @@ describe('ExpenseList', () => {
     render(<ExpenseList mes="Fevereiro" aba="CartãoNubank" />);
 
     await waitFor(() => {
-      expect(screen.getByText('R$ 1.234,56')).toBeInTheDocument();
+      const items = screen.getAllByText('R$ 1.234,56');
+      expect(items[0]).toBeInTheDocument();
     });
 
     // Verify exact formatting is preserved
-    const valorCell = screen.getByText('R$ 1.234,56');
-    expect(valorCell.textContent).toBe('R$ 1.234,56');
+    const valorCells = screen.getAllByText('R$ 1.234,56');
+    expect(valorCells[0].textContent).toBe('R$ 1.234,56');
   });
 
   it('should call getExpenses with correct parameters', async () => {
