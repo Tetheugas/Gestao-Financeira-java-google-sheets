@@ -3,6 +3,7 @@ package com.financeiro.service;
 import com.financeiro.model.Expense;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -13,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Testes unitários para GoogleSheetsService.
  */
 @SpringBootTest
+@TestPropertySource(properties = "google.sheets.spreadsheet.id=dummy_id")
 class GoogleSheetsServiceTest {
 
     /**
@@ -169,17 +171,18 @@ class GoogleSheetsServiceTest {
      * Este teste verifica apenas a validação do mês, não a integração com Google Sheets.
      */
     @Test
-    void testReadExpenses_ValidMonth_NoException() {
+    void testReadExpenses_ValidMonth_NoException() throws Exception {
         GoogleSheetsService service = new GoogleSheetsService();
+        service.init();
         
         // Verifica que meses válidos não lançam IllegalArgumentException
-        // (A IOException será lançada porque não há credenciais configuradas,
+        // (A GoogleSheetsAuthException ou IOException será lançada porque não há credenciais configuradas,
         // mas isso é esperado em testes unitários sem integração)
         assertDoesNotThrow(() -> {
             try {
                 service.readExpenses("TestSheet", "Janeiro");
-            } catch (java.io.IOException e) {
-                // IOException é esperada sem credenciais configuradas
+            } catch (com.financeiro.exception.GoogleSheetsAuthException | java.io.IOException e) {
+                // Exceção é esperada sem credenciais configuradas
                 // O importante é que IllegalArgumentException não seja lançada
             }
         });
@@ -339,18 +342,19 @@ class GoogleSheetsServiceTest {
      * Este teste verifica apenas a validação dos parâmetros, não a integração com Google Sheets.
      */
     @Test
-    void testAddExpense_ValidData_NoValidationException() {
+    void testAddExpense_ValidData_NoValidationException() throws Exception {
         GoogleSheetsService service = new GoogleSheetsService();
+        service.init();
         Expense expense = new Expense("Test Expense", 100.0);
         
         // Verifica que dados válidos não lançam IllegalArgumentException
-        // (A IOException será lançada porque não há credenciais configuradas,
+        // (A GoogleSheetsAuthException ou IOException será lançada porque não há credenciais configuradas,
         // mas isso é esperado em testes unitários sem integração)
         assertDoesNotThrow(() -> {
             try {
                 service.addExpense("TestSheet", "Janeiro", expense);
-            } catch (java.io.IOException e) {
-                // IOException é esperada sem credenciais configuradas
+            } catch (com.financeiro.exception.GoogleSheetsAuthException | java.io.IOException e) {
+                // Exceção é esperada sem credenciais configuradas
                 // O importante é que IllegalArgumentException não seja lançada
             }
         });

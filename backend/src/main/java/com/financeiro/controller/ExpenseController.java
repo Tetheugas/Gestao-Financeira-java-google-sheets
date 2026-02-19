@@ -3,6 +3,7 @@ package com.financeiro.controller;
 import com.financeiro.dto.ExpenseDTO;
 import com.financeiro.dto.ExpenseRequestDTO;
 import com.financeiro.dto.MessageDTO;
+import com.financeiro.exception.GoogleSheetsAuthException;
 import com.financeiro.model.Expense;
 import com.financeiro.service.GoogleSheetsService;
 import com.financeiro.util.MoneyFormatter;
@@ -83,6 +84,11 @@ public class ExpenseController {
                 .body(new MessageDTO("Gasto cadastrado com sucesso", "success"));
     }
 
+    @ExceptionHandler(GoogleSheetsAuthException.class)
+    public ResponseEntity<MessageDTO> handleAuthException(GoogleSheetsAuthException e) {
+        return ResponseEntity.status(401)
+                .body(new MessageDTO(e.getMessage(), "auth_error"));
+    }
 
 }
 
