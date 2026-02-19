@@ -870,6 +870,93 @@ public class GoogleSheetsService {
     }
 
     /**
+     * Renomeia uma aba da planilha.
+     *
+     * @param oldName Nome atual da aba
+     * @param newName Novo nome para a aba
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    public void renameSheet(String oldName, String newName) throws IOException {
+        if (oldName == null || oldName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Nome atual da aba não pode ser vazio");
+        }
+        if (newName == null || newName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Novo nome da aba não pode ser vazio");
+        }
+
+        Integer sheetId = getSheetId(oldName);
+        if (sheetId == null) {
+            throw new IllegalArgumentException("Aba não encontrada: " + oldName);
+        }
+
+        Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
+
+        try {
+            BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
+
+            UpdateSheetPropertiesRequest updateRequest = new UpdateSheetPropertiesRequest()
+                    .setProperties(new SheetProperties()
+                            .setSheetId(sheetId)
+                            .setTitle(newName))
+                    .setFields("title");
+
+            Request request = new Request().setUpdateSheetProperties(updateRequest);
+            batchUpdateRequest.setRequests(Collections.singletonList(request));
+
+            sheetsService.spreadsheets()
+                    .batchUpdate(currentSpreadsheetId, batchUpdateRequest)
+                    .execute();
+
+            logger.info("Aba '{}' renomeada para '{}' com sucesso", oldName, newName);
+
+        } catch (IOException e) {
+            logger.error("Erro ao renomear aba de '{}' para '{}'", oldName, newName, e);
+            throw e;
+        }
+    }
+
+    /**
+     * Exclui uma aba da planilha.
+     *
+     * @param sheetName Nome da aba a ser excluída
+     * @throws IOException Se houver erro ao comunicar com Google Sheets API
+     */
+    public void deleteSheet(String sheetName) throws IOException {
+        if (sheetName == null || sheetName.trim().isEmpty()) {
+            throw new IllegalArgumentException("Nome da aba não pode ser vazio");
+        }
+
+        Integer sheetId = getSheetId(sheetName);
+        if (sheetId == null) {
+            throw new IllegalArgumentException("Aba não encontrada: " + sheetName);
+        }
+
+        Sheets sheetsService = getSheetsService();
+        String currentSpreadsheetId = resolveSpreadsheetId();
+
+        try {
+            BatchUpdateSpreadsheetRequest batchUpdateRequest = new BatchUpdateSpreadsheetRequest();
+
+            DeleteSheetRequest deleteRequest = new DeleteSheetRequest()
+                    .setSheetId(sheetId);
+
+            Request request = new Request().setDeleteSheet(deleteRequest);
+            batchUpdateRequest.setRequests(Collections.singletonList(request));
+
+            sheetsService.spreadsheets()
+                    .batchUpdate(currentSpreadsheetId, batchUpdateRequest)
+                    .execute();
+
+            logger.info("Aba '{}' excluída com sucesso", sheetName);
+
+        } catch (IOException e) {
+            logger.error("Erro ao excluir aba '{}'", sheetName, e);
+            throw e;
+        }
+    }
+
+    /**
      * Deleta a linha de um gasto na planilha.
      *
      * @param sheetName Nome da aba

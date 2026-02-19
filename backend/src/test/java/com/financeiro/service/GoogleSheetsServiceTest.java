@@ -359,4 +359,61 @@ class GoogleSheetsServiceTest {
             }
         });
     }
+
+    /**
+     * Teste para verificar que renameSheet valida nome atual nulo.
+     */
+    @Test
+    void testRenameSheet_NullOldName_ThrowsException() {
+        GoogleSheetsService service = new GoogleSheetsService();
+
+        // Verifica que nome atual nulo lança IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                service.renameSheet(null, "NewName");
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("IOException não deveria ser lançada antes da validação", e);
+            }
+        });
+
+        assertTrue(exception.getMessage().contains("Nome atual"));
+    }
+
+    /**
+     * Teste para verificar que renameSheet valida novo nome nulo.
+     */
+    @Test
+    void testRenameSheet_NullNewName_ThrowsException() {
+        GoogleSheetsService service = new GoogleSheetsService();
+
+        // Verifica que novo nome nulo lança IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                service.renameSheet("OldName", null);
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("IOException não deveria ser lançada antes da validação", e);
+            }
+        });
+
+        assertTrue(exception.getMessage().contains("Novo nome"));
+    }
+
+    /**
+     * Teste para verificar que deleteSheet valida nome nulo.
+     */
+    @Test
+    void testDeleteSheet_NullName_ThrowsException() {
+        GoogleSheetsService service = new GoogleSheetsService();
+
+        // Verifica que nome nulo lança IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                service.deleteSheet(null);
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("IOException não deveria ser lançada antes da validação", e);
+            }
+        });
+
+        assertTrue(exception.getMessage().contains("Nome da aba"));
+    }
 }

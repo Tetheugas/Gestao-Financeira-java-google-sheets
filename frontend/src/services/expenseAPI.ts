@@ -77,6 +77,37 @@ export const createFilter = async (name: string): Promise<MessageResponse> => {
 };
 
 /**
+ * Renames an existing filter (sheet)
+ * @param oldName - Current name of the filter
+ * @param newName - New name of the filter
+ * @returns Promise with success message
+ */
+export const renameFilter = async (oldName: string, newName: string): Promise<MessageResponse> => {
+  try {
+    const response = await api.put<MessageResponse>(`/filters/${oldName}`, { newName });
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao renomear filtro');
+    throw error;
+  }
+};
+
+/**
+ * Deletes an existing filter (sheet)
+ * @param name - Name of the filter to delete
+ * @returns Promise with success message
+ */
+export const deleteFilter = async (name: string): Promise<MessageResponse> => {
+  try {
+    const response = await api.delete<MessageResponse>(`/filters/${name}`);
+    return response.data;
+  } catch (error) {
+    handleAxiosError(error, 'Erro ao excluir filtro');
+    throw error;
+  }
+};
+
+/**
  * Updates an existing expense
  * @param rowId - The row ID of the expense to update
  * @param data - The new expense data

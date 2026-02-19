@@ -62,6 +62,50 @@ public class ExpenseController {
     }
 
     /**
+     * Endpoint PUT para renomear um filtro (aba).
+     *
+     * @param oldName Nome atual do filtro
+     * @param body Mapa contendo o novo nome do filtro (chave "newName")
+     * @return MessageDTO com status
+     * @throws IOException se houver erro ao acessar Google Sheets
+     */
+    @PutMapping("/filters/{oldName}")
+    public ResponseEntity<MessageDTO> renameFilter(
+            @PathVariable String oldName,
+            @RequestBody Map<String, String> body) throws IOException {
+
+        String newName = body.get("newName");
+        if (newName == null || newName.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageDTO("Novo nome do filtro é obrigatório", "error"));
+        }
+
+        try {
+            sheetsService.renameSheet(oldName, newName);
+            return ResponseEntity.ok(new MessageDTO("Filtro renomeado com sucesso", "success"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new MessageDTO(e.getMessage(), "error"));
+        }
+    }
+
+    /**
+     * Endpoint DELETE para remover um filtro (aba).
+     *
+     * @param name Nome do filtro a ser removido
+     * @return MessageDTO com status
+     * @throws IOException se houver erro ao acessar Google Sheets
+     */
+    @DeleteMapping("/filters/{name}")
+    public ResponseEntity<MessageDTO> deleteFilter(@PathVariable String name) throws IOException {
+        try {
+            sheetsService.deleteSheet(name);
+            return ResponseEntity.ok(new MessageDTO("Filtro removido com sucesso", "success"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new MessageDTO(e.getMessage(), "error"));
+        }
+    }
+
+    /**
      * Endpoint GET para leitura de gastos de um mês específico.
      *
      * @param mes Mês para buscar gastos (ex: "Fevereiro")
