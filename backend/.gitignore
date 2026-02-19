@@ -24,6 +24,7 @@ buildNumber.properties
 credentials.json
 tokens/
 *.json
+!src/test/resources/credentials.json
 
 # Logs
 *.log

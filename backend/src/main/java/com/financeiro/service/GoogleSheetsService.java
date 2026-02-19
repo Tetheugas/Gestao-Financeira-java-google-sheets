@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -60,19 +61,43 @@ public class GoogleSheetsService {
     public void init() throws IOException, GeneralSecurityException {
         try {
             httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-            InputStream in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+
+            InputStream in = null;
+            String envCredentialsPath = System.getenv("GOOGLE_CREDENTIALS_PATH");
+
+            if (envCredentialsPath != null && !envCredentialsPath.isEmpty()) {
+                File credFile = new File(envCredentialsPath);
+                if (credFile.exists()) {
+                    logger.info("Carregando credentials.json de: {}", envCredentialsPath);
+                    in = new FileInputStream(credFile);
+                } else {
+                    logger.warn("Arquivo definido em GOOGLE_CREDENTIALS_PATH não encontrado: {}", envCredentialsPath);
+                }
+            }
+
             if (in == null) {
-                logger.error("Arquivo credentials.json não encontrado no classpath");
+                logger.info("Carregando credentials.json do classpath");
+                in = GoogleSheetsService.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
+            }
+
+            if (in == null) {
+                logger.error("Arquivo credentials.json não encontrado no classpath nem via GOOGLE_CREDENTIALS_PATH");
                 throw new FileNotFoundException("Arquivo credentials.json não encontrado. " +
-                        "Por favor, coloque o arquivo credentials.json em src/main/resources/");
+                        "Por favor, defina GOOGLE_CREDENTIALS_PATH ou coloque o arquivo credentials.json em src/main/resources/");
             }
 
             GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
 
+            String tokensPath = System.getenv("GOOGLE_TOKENS_PATH");
+            if (tokensPath == null || tokensPath.isEmpty()) {
+                tokensPath = TOKENS_DIRECTORY_PATH;
+            }
+            logger.info("Usando diretório de tokens: {}", tokensPath);
+
             // Configura o fluxo de autorização e armazena credenciais
             flow = new GoogleAuthorizationCodeFlow.Builder(
                     httpTransport, JSON_FACTORY, clientSecrets, SCOPES)
-                    .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+                    .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(tokensPath)))
                     .setAccessType("offline")
                     .build();
         } catch (Exception e) {

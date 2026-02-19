@@ -1,0 +1,46 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # If mounting credentials.json, uncomment the volume below and ensure the file exists.
+      - GOOGLE_CREDENTIALS_PATH=/app/credentials/credentials.json
+      # Tokens will be stored in the volume
+      - GOOGLE_TOKENS_PATH=/app/tokens
+      # Set this in your host .env file or shell
+      - SPREADSHEET_ID=${SPREADSHEET_ID:-}
+    volumes:
+      # UNCOMMENT and POINT to your credentials.json file
+      # - ./backend/src/main/resources/credentials.json:/app/credentials/credentials.json:ro
+
+      # Persist authentication tokens
+      - tokens_volume:/app/tokens
+
+      # Persist spreadsheet ID if not using ENV var (optional)
+      # - ./backend/spreadsheet-id.txt:/app/spreadsheet-id.txt
+    networks:
+      - finance-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # The browser needs to reach the backend. For local docker-compose, localhost:8080 is correct.
+        # For production, change this to your public backend URL.
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8080/api}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - finance-net
+
+networks:
+  finance-net:
+
+volumes:
+  tokens_volume:
