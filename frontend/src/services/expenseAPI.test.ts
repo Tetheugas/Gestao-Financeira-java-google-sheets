@@ -179,7 +179,7 @@ describe('expenseAPI', () => {
       
       expect(axios.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+          baseURL: '/api',
         })
       );
     });
