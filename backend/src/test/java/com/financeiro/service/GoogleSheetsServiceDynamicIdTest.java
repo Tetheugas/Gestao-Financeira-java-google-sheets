@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.test.context.TestPropertySource;
 
@@ -34,6 +35,9 @@ class GoogleSheetsServiceDynamicIdTest {
 
     @MockBean
     private OAuth2AuthorizedClientService authorizedClientService;
+
+    @MockBean
+    private ClientRegistrationRepository clientRegistrationRepository;
 
     @Test
     void testResolveSpreadsheetId_CreatesNew_WhenNotConfigured() throws Exception {
