@@ -7,6 +7,7 @@ import type { Expense, ExpenseRequest, MessageResponse } from '../types';
 // Configure axios instance with base URL
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -148,16 +149,6 @@ export const getAuthStatus = async (): Promise<boolean> => {
   } catch (error) {
     console.error("Failed to check auth status", error);
     return false;
-  }
-};
-
-export const getAuthUrl = async (): Promise<string> => {
-  try {
-    const response = await api.post<{ url: string }>('/auth/login');
-    return response.data.url;
-  } catch (error) {
-    handleAxiosError(error, 'Erro ao iniciar login');
-    throw error;
   }
 };
 
