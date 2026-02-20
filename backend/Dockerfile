@@ -1,17 +1,35 @@
-# Build stage
-FROM maven:3.9.6-eclipse-temurin-17 AS build
+# ---------- FRONTEND BUILD ----------
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN npm install
+
+COPY frontend .
+RUN npm run build
+
+
+# ---------- BACKEND BUILD ----------
+FROM maven:3.9.6-eclipse-temurin-17 AS backend-build
 WORKDIR /app
+
 COPY pom.xml .
 RUN mvn dependency:go-offline
+
 COPY src ./src
+
+# Copia o build do frontend para o static do Spring
+COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
+
 RUN mvn package -DskipTests
 
-# Run stage
+
+# ---------- RUNTIME ----------
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
 
-# Create directory for tokens and volume mount
+COPY --from=backend-build /app/target/*.jar app.jar
+
 RUN mkdir -p tokens
 VOLUME /app/tokens
 
