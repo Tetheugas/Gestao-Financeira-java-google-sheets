@@ -6,7 +6,7 @@ import type { Expense, ExpenseRequest, MessageResponse } from '../types';
 
 // Configure axios instance with base URL
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: '/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -18,14 +18,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Construct the OAuth2 authorization URL
-      const apiBaseUrl = (api.defaults.baseURL as string) || import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-      // Remove '/api' suffix if present to get the root URL
-      const rootUrl = apiBaseUrl.replace(/\/api\/?$/, '');
-      const authUrl = `${rootUrl}/oauth2/authorization/google`;
-
-      // Redirect to Google login
-      window.location.href = authUrl;
+      window.location.href = '/oauth2/authorization/google';
     }
     return Promise.reject(error);
   }
@@ -40,7 +33,7 @@ api.interceptors.response.use(
  */
 export const getExpenses = async (mes: string, aba: string): Promise<Expense[]> => {
   try {
-    const response = await api.get<Expense[]>(`/api/expenses/${mes}`, {
+    const response = await api.get<Expense[]>(`/expenses/${mes}`, {
       params: { aba },
     });
     return response.data;
@@ -58,7 +51,7 @@ export const getExpenses = async (mes: string, aba: string): Promise<Expense[]> 
  */
 export const addExpense = async (data: ExpenseRequest): Promise<MessageResponse> => {
   try {
-    const response = await api.post<MessageResponse>('/api/expenses', data);
+    const response = await api.post<MessageResponse>('/expenses', data);
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao adicionar gasto');
@@ -72,7 +65,7 @@ export const addExpense = async (data: ExpenseRequest): Promise<MessageResponse>
  */
 export const getFilters = async (): Promise<string[]> => {
   try {
-    const response = await api.get<string[]>('/api/filters');
+    const response = await api.get<string[]>('/filters');
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao buscar filtros');
@@ -87,7 +80,7 @@ export const getFilters = async (): Promise<string[]> => {
  */
 export const createFilter = async (name: string): Promise<MessageResponse> => {
   try {
-    const response = await api.post<MessageResponse>('/api/filters', { name });
+    const response = await api.post<MessageResponse>('/filters', { name });
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao criar filtro');
@@ -103,7 +96,7 @@ export const createFilter = async (name: string): Promise<MessageResponse> => {
  */
 export const renameFilter = async (oldName: string, newName: string): Promise<MessageResponse> => {
   try {
-    const response = await api.put<MessageResponse>(`/api/filters/${oldName}`, { newName });
+    const response = await api.put<MessageResponse>(`/filters/${oldName}`, { newName });
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao renomear filtro');
@@ -118,7 +111,7 @@ export const renameFilter = async (oldName: string, newName: string): Promise<Me
  */
 export const deleteFilter = async (name: string): Promise<MessageResponse> => {
   try {
-    const response = await api.delete<MessageResponse>(`/api/filters/${name}`);
+    const response = await api.delete<MessageResponse>(`/filters/${name}`);
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao excluir filtro');
@@ -134,7 +127,7 @@ export const deleteFilter = async (name: string): Promise<MessageResponse> => {
  */
 export const updateExpense = async (rowId: number, data: ExpenseRequest): Promise<MessageResponse> => {
   try {
-    const response = await api.put<MessageResponse>(`/api/expenses/${rowId}`, data);
+    const response = await api.put<MessageResponse>(`/expenses/${rowId}`, data);
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao atualizar gasto');
@@ -150,7 +143,7 @@ export const updateExpense = async (rowId: number, data: ExpenseRequest): Promis
  */
 export const deleteExpense = async (rowId: number, aba: string): Promise<MessageResponse> => {
   try {
-    const response = await api.delete<MessageResponse>(`/api/expenses/${rowId}`, {
+    const response = await api.delete<MessageResponse>(`/expenses/${rowId}`, {
       params: { aba },
     });
     return response.data;
@@ -162,7 +155,7 @@ export const deleteExpense = async (rowId: number, aba: string): Promise<Message
 
 export const getAuthStatus = async (): Promise<boolean> => {
   try {
-    const response = await api.get<{ authenticated: boolean }>('/api/auth/status');
+    const response = await api.get<{ authenticated: boolean }>('/auth/status');
     return response.data.authenticated;
   } catch (error) {
     console.error("Failed to check auth status", error);
@@ -172,7 +165,7 @@ export const getAuthStatus = async (): Promise<boolean> => {
 
 export const getSpreadsheetConfig = async (): Promise<string> => {
   try {
-    const response = await api.get<{ spreadsheetId: string }>('/api/spreadsheet');
+    const response = await api.get<{ spreadsheetId: string }>('/spreadsheet');
     return response.data.spreadsheetId;
   } catch (error) {
     handleAxiosError(error, 'Erro ao buscar ID da planilha');
@@ -182,7 +175,7 @@ export const getSpreadsheetConfig = async (): Promise<string> => {
 
 export const updateSpreadsheetConfig = async (spreadsheetId: string): Promise<MessageResponse> => {
   try {
-    const response = await api.put<MessageResponse>('/api/spreadsheet', { spreadsheetId });
+    const response = await api.put<MessageResponse>('/spreadsheet', { spreadsheetId });
     return response.data;
   } catch (error) {
     handleAxiosError(error, 'Erro ao atualizar ID da planilha');
@@ -192,7 +185,7 @@ export const updateSpreadsheetConfig = async (spreadsheetId: string): Promise<Me
 
 export const createSpreadsheetConfig = async (): Promise<string> => {
   try {
-    const response = await api.post<{ spreadsheetId: string }>('/api/spreadsheet');
+    const response = await api.post<{ spreadsheetId: string }>('/spreadsheet');
     return response.data.spreadsheetId;
   } catch (error) {
     handleAxiosError(error, 'Erro ao criar nova planilha');
