@@ -3,8 +3,10 @@ package com.financeiro.service;
 import com.financeiro.model.Expense;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 
 import java.lang.reflect.Method;
 
@@ -18,8 +20,14 @@ import static org.mockito.Mockito.mock;
 @TestPropertySource(properties = "google.sheets.spreadsheet.id=dummy_id")
 class GoogleSheetsServiceTest {
 
+    @MockBean
+    private OAuth2AuthorizedClientService authorizedClientService;
+
+    @MockBean
+    private ClientRegistrationRepository clientRegistrationRepository;
+
     private GoogleSheetsService createService() {
-        return new GoogleSheetsService(mock(OAuth2AuthorizedClientService.class));
+        return new GoogleSheetsService(mock(OAuth2AuthorizedClientService.class), "dummy_id");
     }
 
     /**

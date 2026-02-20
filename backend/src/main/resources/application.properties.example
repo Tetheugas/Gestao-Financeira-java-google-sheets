@@ -16,9 +16,8 @@ spring.web.cors.allow-credentials=true
 
 # Google Sheets Configuration
 # ---------------------------
-# The spreadsheet ID is automatically resolved/created by the application based on the user's Drive.
-# However, you can optionally hardcode it here if you want to force a specific sheet for all users (not recommended for multi-user).
-# google.sheets.spreadsheet.id=<YOUR_SPREADSHEET_ID>
+# The spreadsheet ID must be configured here.
+google.sheets.spreadsheet.id=<YOUR_SPREADSHEET_ID>
 
 # Google OAuth2 Client Configuration
 # ----------------------------------
@@ -38,7 +37,7 @@ spring.security.oauth2.client.registration.google.client-id=YOUR_CLIENT_ID_HERE
 spring.security.oauth2.client.registration.google.client-secret=YOUR_CLIENT_SECRET_HERE
 
 # Scopes required for the application
-spring.security.oauth2.client.registration.google.scope=openid,profile,email,https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets
+spring.security.oauth2.client.registration.google.scope=openid,profile,email,https://www.googleapis.com/auth/spreadsheets
 
 # Standard OAuth2 configuration (usually doesn't need changing)
 spring.security.oauth2.client.registration.google.redirect-uri={baseUrl}/login/oauth2/code/{registrationId}
