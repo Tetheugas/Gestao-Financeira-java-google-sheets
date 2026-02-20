@@ -7,6 +7,9 @@ import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.*;
 import jakarta.annotation.PostConstruct;
@@ -42,10 +45,11 @@ public class GoogleSheetsService {
 
     private final OAuth2AuthorizedClientService authorizedClientService;
     private final String spreadsheetId;
+    private final Map<String, String> userSpreadsheetIds = new ConcurrentHashMap<>();
     private NetHttpTransport httpTransport;
 
     public GoogleSheetsService(OAuth2AuthorizedClientService authorizedClientService,
-                               @Value("${google.sheets.spreadsheet.id}") String spreadsheetId) {
+                               @Value("${google.sheets.spreadsheet.id:#{null}}") String spreadsheetId) {
         this.authorizedClientService = authorizedClientService;
         this.spreadsheetId = spreadsheetId;
     }
@@ -108,17 +112,124 @@ public class GoogleSheetsService {
 
     /**
      * Resolve o ID da planilha para o usuário atual.
-     * Apenas retorna o ID configurado via application.properties.
+     * Se configurado no application.properties, usa o ID global.
+     * Caso contrário, tenta recuperar ou criar uma planilha para o usuário.
      */
     private String resolveSpreadsheetId() throws IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             throw new GoogleSheetsAuthException("User not authenticated");
         }
-        if (spreadsheetId == null || spreadsheetId.trim().isEmpty()) {
-            throw new GoogleSheetsAuthException("Spreadsheet ID not configured");
+
+        // 1. Prefer configured ID
+        if (spreadsheetId != null && !spreadsheetId.trim().isEmpty()) {
+            return spreadsheetId;
         }
-        return spreadsheetId;
+
+        String username = authentication.getName();
+
+        // 2. Check dynamic cache
+        if (userSpreadsheetIds.containsKey(username)) {
+            return userSpreadsheetIds.get(username);
+        }
+
+        // 3. Search for existing spreadsheet in Drive
+        String spreadsheetName = "Gestão Financeira Pessoal - " + username;
+        String existingId = findSpreadsheetIdByName(spreadsheetName);
+        if (existingId != null) {
+            logger.info("Planilha existente encontrada: {} ({})", spreadsheetName, existingId);
+            userSpreadsheetIds.put(username, existingId);
+            return existingId;
+        }
+
+        // 4. Create new spreadsheet
+        String newId = createNewSpreadsheet(spreadsheetName);
+        userSpreadsheetIds.put(username, newId);
+        return newId;
+    }
+
+    /**
+     * Obtém uma instância autenticada do serviço Google Drive.
+     */
+    private Drive getDriveService() throws GoogleSheetsAuthException {
+        try {
+            OAuth2AuthorizedClient client = getAuthorizedClient();
+            if (client == null) {
+                throw new GoogleSheetsAuthException("User not authenticated. Please login.");
+            }
+            String accessToken = client.getAccessToken().getTokenValue();
+
+            HttpRequestInitializer requestInitializer = request -> {
+                request.getHeaders().setAuthorization("Bearer " + accessToken);
+            };
+
+            return new Drive.Builder(httpTransport, JSON_FACTORY, requestInitializer)
+                    .setApplicationName(APPLICATION_NAME)
+                    .build();
+
+        } catch (Exception e) {
+            logger.error("Erro ao criar serviço Drive", e);
+            throw new GoogleSheetsAuthException("Erro ao criar serviço Drive", e);
+        }
+    }
+
+    private String findSpreadsheetIdByName(String name) throws IOException {
+        try {
+            Drive driveService = getDriveService();
+            // Escaping single quotes in name to prevent injection or query errors is good practice,
+            // but for simplicity assuming username is safe-ish.
+            // Better: use prepared statement logic if available, but Drive API uses string query.
+            String query = "name = '" + name.replace("'", "\\'") + "' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false";
+
+            FileList result = driveService.files().list()
+                    .setQ(query)
+                    .setFields("files(id, name)")
+                    .execute();
+
+            List<File> files = result.getFiles();
+            if (files != null && !files.isEmpty()) {
+                return files.get(0).getId();
+            }
+            return null;
+        } catch (IOException e) {
+             logger.error("Erro ao buscar planilha existente", e);
+             throw e;
+        }
+    }
+
+    private String createNewSpreadsheet(String title) throws IOException {
+        try {
+            Sheets service = getSheetsService();
+            Spreadsheet spreadsheet = new Spreadsheet()
+                    .setProperties(new SpreadsheetProperties().setTitle(title));
+            spreadsheet = service.spreadsheets().create(spreadsheet).execute();
+            String newId = spreadsheet.getSpreadsheetId();
+            logger.info("Nova planilha criada: {} ({})", title, newId);
+
+            // Add default headers to the first sheet
+            if (spreadsheet.getSheets() != null && !spreadsheet.getSheets().isEmpty()) {
+                 String firstSheetName = spreadsheet.getSheets().get(0).getProperties().getTitle();
+                 addMonthHeaders(newId, firstSheetName);
+            }
+
+            return newId;
+        } catch (IOException e) {
+            logger.error("Falha ao criar nova planilha", e);
+            throw e;
+        }
+    }
+
+    private void addMonthHeaders(String spreadsheetId, String sheetName) throws IOException, GoogleSheetsAuthException {
+        Sheets sheetsService = getSheetsService();
+        List<Object> headers = new ArrayList<>();
+        headers.add("Descrição");
+        headers.add("Janeiro"); headers.add("Fevereiro"); headers.add("Março"); headers.add("Abril");
+        headers.add("Maio"); headers.add("Junho"); headers.add("Julho"); headers.add("Agosto");
+        headers.add("Setembro"); headers.add("Outubro"); headers.add("Novembro"); headers.add("Dezembro");
+        String headerRange = String.format("%s!A1:M1", sheetName);
+        ValueRange headerValueRange = new ValueRange().setValues(Collections.singletonList(headers));
+        sheetsService.spreadsheets().values().update(spreadsheetId, headerRange, headerValueRange)
+                .setValueInputOption("RAW").execute();
     }
 
     public String getSpreadsheetId() {
@@ -222,17 +333,8 @@ public class GoogleSheetsService {
     }
 
     private void addMonthHeaders(String sheetName) throws IOException, GoogleSheetsAuthException {
-        Sheets sheetsService = getSheetsService();
         String currentSpreadsheetId = resolveSpreadsheetId();
-        List<Object> headers = new ArrayList<>();
-        headers.add("Descrição");
-        headers.add("Janeiro"); headers.add("Fevereiro"); headers.add("Março"); headers.add("Abril");
-        headers.add("Maio"); headers.add("Junho"); headers.add("Julho"); headers.add("Agosto");
-        headers.add("Setembro"); headers.add("Outubro"); headers.add("Novembro"); headers.add("Dezembro");
-        String headerRange = String.format("%s!A1:M1", sheetName);
-        ValueRange headerValueRange = new ValueRange().setValues(Collections.singletonList(headers));
-        sheetsService.spreadsheets().values().update(currentSpreadsheetId, headerRange, headerValueRange)
-                .setValueInputOption("RAW").execute();
+        addMonthHeaders(currentSpreadsheetId, sheetName);
     }
 
     public void ensureSheetExists(String sheetName) throws GoogleSheetsAuthException, IOException {
