@@ -12,6 +12,9 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.financeiro.security.OAuth2SuccessHandler;
+import com.financeiro.security.OAuth2FailureHandler;
+import org.springframework.security.config.http.SessionCreationPolicy;
 
 import java.util.Arrays;
 import java.util.List;
@@ -22,6 +25,14 @@ public class SecurityConfig {
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
+
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
+
+    public SecurityConfig(OAuth2SuccessHandler oAuth2SuccessHandler, OAuth2FailureHandler oAuth2FailureHandler) {
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.oAuth2FailureHandler = oAuth2FailureHandler;
+    }
 
     @Bean
     public CookieSameSiteSupplier cookieSameSiteSupplier() {
@@ -35,7 +46,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 // ADICIONE ISSO: Garante que a sessão seja criada para salvar o "state" do OAuth2
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.ALWAYS)
+                        .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/status", "/error", "/login/**", "/oauth2/**").permitAll()
@@ -46,9 +57,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl(frontendUrl, true)
-                        // ADICIONE ISSO: Se der erro, ele volta para o seu Front e não para o login padrão
-                        .failureUrl(frontendUrl + "/login?error=true")
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
                 );
 
         return http.build();
