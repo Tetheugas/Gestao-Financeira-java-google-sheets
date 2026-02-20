@@ -7,14 +7,12 @@ import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.services.drive.Drive;
-import com.google.api.services.drive.model.File;
-import com.google.api.services.drive.model.FileList;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.model.*;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
@@ -43,13 +41,13 @@ public class GoogleSheetsService {
     private static final String SPREADSHEET_NAME = "Gestão Financeira Pessoal";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final String spreadsheetId;
     private NetHttpTransport httpTransport;
 
-    // Cache to store Spreadsheet ID per user (Key: User Email, Value: Spreadsheet ID)
-    private final Map<String, String> userSpreadsheetCache = new ConcurrentHashMap<>();
-
-    public GoogleSheetsService(OAuth2AuthorizedClientService authorizedClientService) {
+    public GoogleSheetsService(OAuth2AuthorizedClientService authorizedClientService,
+                               @Value("${google.sheets.spreadsheet.id}") String spreadsheetId) {
         this.authorizedClientService = authorizedClientService;
+        this.spreadsheetId = spreadsheetId;
     }
 
     @PostConstruct
@@ -109,93 +107,19 @@ public class GoogleSheetsService {
     }
 
     /**
-     * Obtém uma instância autenticada do serviço Google Drive.
-     */
-    private Drive getDriveService() throws GoogleSheetsAuthException {
-        try {
-            OAuth2AuthorizedClient client = getAuthorizedClient();
-            if (client == null) {
-                throw new GoogleSheetsAuthException("User not authenticated. Please login.");
-            }
-            String accessToken = client.getAccessToken().getTokenValue();
-
-            HttpRequestInitializer requestInitializer = request -> {
-                request.getHeaders().setAuthorization("Bearer " + accessToken);
-            };
-
-            return new Drive.Builder(httpTransport, JSON_FACTORY, requestInitializer)
-                    .setApplicationName(APPLICATION_NAME)
-                    .build();
-
-        } catch (Exception e) {
-            logger.error("Erro ao criar serviço Drive", e);
-            throw new GoogleSheetsAuthException("Erro ao criar serviço Drive", e);
-        }
-    }
-
-    /**
      * Resolve o ID da planilha para o usuário atual.
-     * Procura no cache, depois no Drive, e se não achar, cria.
+     * Apenas retorna o ID configurado via application.properties.
      */
     private String resolveSpreadsheetId() throws IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             throw new GoogleSheetsAuthException("User not authenticated");
         }
-        String userEmail = authentication.getName(); // Usually the email or sub
-
-        // 1. Check Cache
-        if (userSpreadsheetCache.containsKey(userEmail)) {
-            return userSpreadsheetCache.get(userEmail);
+        if (spreadsheetId == null || spreadsheetId.trim().isEmpty()) {
+            throw new GoogleSheetsAuthException("Spreadsheet ID not configured");
         }
-
-        // 2. Search in Drive
-        logger.info("Searching for spreadsheet '{}' in Drive for user {}", SPREADSHEET_NAME, userEmail);
-        Drive driveService = getDriveService();
-        String query = "name = '" + SPREADSHEET_NAME + "' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false";
-
-        FileList result = driveService.files().list()
-                .setQ(query)
-                .setSpaces("drive")
-                .setFields("files(id, name)")
-                .execute();
-
-        List<File> files = result.getFiles();
-        if (files != null && !files.isEmpty()) {
-            // Found it
-            String id = files.get(0).getId();
-            logger.info("Spreadsheet found with ID: {}", id);
-            userSpreadsheetCache.put(userEmail, id);
-            return id;
-        }
-
-        // 3. Create New
-        logger.info("Spreadsheet not found. Creating new one...");
-        return createNewSpreadsheet(); // This method will update the cache
-    }
-
-    public String createNewSpreadsheet() throws IOException {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userEmail = authentication.getName();
-
-        Sheets service = getSheetsService();
-        Spreadsheet spreadsheet = new Spreadsheet()
-                .setProperties(new SpreadsheetProperties().setTitle(SPREADSHEET_NAME));
-
-        Spreadsheet created = service.spreadsheets().create(spreadsheet).execute();
-        String spreadsheetId = created.getSpreadsheetId();
-
-        // Update cache
-        userSpreadsheetCache.put(userEmail, spreadsheetId);
-
-        logger.info("Nova planilha criada com ID: {}", spreadsheetId);
         return spreadsheetId;
     }
-
-    // --- Original Methods Adapted ---
-
-    // The rest of the methods (getSpreadsheetId, setSpreadsheetId) need adaptation or removal.
-    // getSpreadsheetId public accessor is tricky because it depends on user context.
 
     public String getSpreadsheetId() {
         try {
@@ -203,28 +127,6 @@ public class GoogleSheetsService {
         } catch (IOException e) {
             logger.error("Could not resolve spreadsheet ID", e);
             return null;
-        }
-    }
-
-    // Note: setSpreadsheetId is less relevant now as we auto-discover,
-    // but if the user wants to switch spreadsheets, we can support it.
-    public void setSpreadsheetId(String id) throws IOException {
-        if (id == null || id.trim().isEmpty()) {
-            throw new IllegalArgumentException("ID da planilha não pode ser vazio");
-        }
-
-        // Verifica acesso
-        Sheets service = getSheetsService();
-        try {
-            service.spreadsheets().get(id).execute();
-        } catch (IOException e) {
-            logger.error("Erro ao acessar planilha com ID: " + id, e);
-            throw new IllegalArgumentException("Não foi possível acessar a planilha. Verifique permissões.", e);
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null) {
-            userSpreadsheetCache.put(authentication.getName(), id);
         }
     }
 
