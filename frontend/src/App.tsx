@@ -50,7 +50,7 @@ function App() {
 
   const handleLogin = () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const apiUrl = '/api';
       // Remove /api suffix if present to get base URL
       const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
       window.location.href = `${baseUrl}/oauth2/authorization/google`;
