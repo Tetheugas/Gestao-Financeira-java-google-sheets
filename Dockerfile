@@ -13,10 +13,10 @@ RUN npm run build
 FROM maven:3.9.6-eclipse-temurin-17 AS backend-build
 WORKDIR /app
 
-COPY pom.xml .
+COPY backend/pom.xml .
 RUN mvn dependency:go-offline
 
-COPY src ./src
+COPY backend/src ./src
 
 # Copia o build do frontend para o static do Spring
 COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
