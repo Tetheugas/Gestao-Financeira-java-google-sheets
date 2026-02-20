@@ -13,6 +13,24 @@ const api = axios.create({
   },
 });
 
+// Add interceptor to handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // Construct the OAuth2 authorization URL
+      const apiBaseUrl = (api.defaults.baseURL as string) || import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      // Remove '/api' suffix if present to get the root URL
+      const rootUrl = apiBaseUrl.replace(/\/api\/?$/, '');
+      const authUrl = `${rootUrl}/oauth2/authorization/google`;
+
+      // Redirect to Google login
+      window.location.href = authUrl;
+    }
+    return Promise.reject(error);
+  }
+);
+
 /**
  * Fetches expenses for a specific month and sheet tab
  * @param mes - Month name (e.g., "Fevereiro")
