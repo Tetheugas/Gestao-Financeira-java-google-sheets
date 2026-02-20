@@ -7,7 +7,6 @@ import ExpenseForm from './components/ExpenseForm';
 import SpreadsheetConfigModal from './components/SpreadsheetConfigModal';
 import {
   getAuthStatus,
-  getAuthUrl,
   getFilters,
   createFilter,
   renameFilter,
@@ -49,23 +48,12 @@ function App() {
     }
   };
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     try {
-      const url = await getAuthUrl();
-      if (url) {
-        window.open(url, '_blank');
-
-        // Poll for authentication status
-        const pollInterval = setInterval(async () => {
-          const isAuth = await getAuthStatus();
-          if (isAuth) {
-            clearInterval(pollInterval);
-            setShowAuthModal(false);
-            fetchFilters();
-            setRefreshKey(prev => prev + 1); // Refresh data
-          }
-        }, 2000);
-      }
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      // Remove /api suffix if present to get base URL
+      const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
+      window.location.href = `${baseUrl}/oauth2/authorization/google`;
     } catch (error) {
       console.error("Login failed", error);
       alert("Falha ao iniciar login com Google.");
