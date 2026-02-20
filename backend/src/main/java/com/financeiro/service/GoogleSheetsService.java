@@ -44,14 +44,12 @@ public class GoogleSheetsService {
     private static final String SPREADSHEET_NAME = "Gestão Financeira Pessoal";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
-    private final String spreadsheetId;
     private final Map<String, String> userSpreadsheetIds = new ConcurrentHashMap<>();
     private NetHttpTransport httpTransport;
 
     public GoogleSheetsService(OAuth2AuthorizedClientService authorizedClientService,
                                @Value("${google.sheets.spreadsheet.id:#{null}}") String spreadsheetId) {
         this.authorizedClientService = authorizedClientService;
-        this.spreadsheetId = spreadsheetId;
     }
 
     @PostConstruct
@@ -119,11 +117,6 @@ public class GoogleSheetsService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             throw new GoogleSheetsAuthException("User not authenticated");
-        }
-
-        // 1. Prefer configured ID
-        if (spreadsheetId != null && !spreadsheetId.trim().isEmpty()) {
-            return spreadsheetId;
         }
 
         String username = authentication.getName();
@@ -342,13 +335,10 @@ public class GoogleSheetsService {
         if (authentication == null) {
             return;
         }
-        String username = authentication.getName();
-        boolean hasId = (spreadsheetId != null && !spreadsheetId.trim().isEmpty()) ||
-                userSpreadsheetIds.containsKey(username);
 
-        if (!hasId) {
-            return;
-        }
+        // Ensure we have a spreadsheet ID resolved (found or created)
+        resolveSpreadsheetId();
+
         if (!sheetExists(sheetName)) {
             createSheet(sheetName);
         }

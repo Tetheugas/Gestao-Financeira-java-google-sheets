@@ -24,8 +24,10 @@ server.servlet.session.cookie.same-site=none
 
 # Google Sheets Configuration
 # ---------------------------
-# The spreadsheet ID must be configured here.
-google.sheets.spreadsheet.id=<YOUR_SPREADSHEET_ID>
+# The spreadsheet ID is now managed automatically per user.
+# The application will find or create a spreadsheet named "Gestão Financeira Pessoal - [User Name]".
+# You do not need to configure an ID here.
+# google.sheets.spreadsheet.id=
 
 # Google OAuth2 Client Configuration
 # ----------------------------------
