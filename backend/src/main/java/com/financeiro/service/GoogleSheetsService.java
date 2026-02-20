@@ -338,6 +338,17 @@ public class GoogleSheetsService {
     }
 
     public void ensureSheetExists(String sheetName) throws GoogleSheetsAuthException, IOException {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return;
+        }
+        String username = authentication.getName();
+        boolean hasId = (spreadsheetId != null && !spreadsheetId.trim().isEmpty()) ||
+                userSpreadsheetIds.containsKey(username);
+
+        if (!hasId) {
+            return;
+        }
         if (!sheetExists(sheetName)) {
             createSheet(sheetName);
         }
