@@ -12,6 +12,13 @@ vi.mock('axios', () => {
       create: vi.fn(() => ({
         get: vi.fn(),
         post: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+        interceptors: {
+          response: {
+            use: vi.fn(),
+          },
+        },
       })),
       isAxiosError: vi.fn(),
     },
@@ -34,6 +41,13 @@ describe('expenseAPI', () => {
     (axios.create as any).mockReturnValue({
       get: mockGet,
       post: mockPost,
+      put: vi.fn(),
+      delete: vi.fn(),
+      interceptors: {
+        response: {
+          use: vi.fn(),
+        },
+      },
     });
     
     // Reset the module to get a fresh instance
